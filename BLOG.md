@@ -348,7 +348,7 @@ The baseline not very surprisingly becomes a quite efficient loop.
 
 ### FasterPushStream decompiled
 
-```
+```csharp
 [Benchmark]
 public long FasterPushStream()
 {

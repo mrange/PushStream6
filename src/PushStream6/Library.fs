@@ -18,6 +18,13 @@ module PushStream =
       i <- i + 1
     i = vs.Length
 
+  // PushStream of List
+  let inline ofList (vs : _ list) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable l = vs
+    while not l.IsEmpty && r l.Head do
+      l <- l.Tail
+    l.IsEmpty
+
   // Collects a PushStream using a collect function
   let inline collect ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> (f v) r)
@@ -47,10 +54,13 @@ module PushStream =
     let ra = toResizeArray 16 ps
     ra.ToArray ()
 
+  // Reverse list from PushStream
+  let inline toReverseList ([<InlineIfLambda>] ps : _ PushStream) : _ list =
+    fold (fun s v -> v::s) [] ps
+
   // List from PushStream
   let inline toList ([<InlineIfLambda>] ps : _ PushStream) : _ list =
-    let l = fold (fun s v -> v::s) [] ps
-    List.rev l
+    List.rev (toReverseList ps)
 
   // It turns out that if we pipe using |> the F# compiler don't inlines
   //  the lambdas as we like it to

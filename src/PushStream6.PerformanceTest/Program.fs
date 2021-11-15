@@ -11,7 +11,7 @@ type [<Struct>] V2 = V2 of int*int
 [<MemoryDiagnoser>]
 [<RyuJitX64Job>]
 //[<RyuJitX86Job>]
-type FsInlineBenchmark() =
+type PushStream6Benchmark() =
   class
 
     [<Benchmark>]
@@ -87,4 +87,4 @@ type FsInlineBenchmark() =
       |>> fold    (+) 0L
   end
 
-BenchmarkRunner.Run<FsInlineBenchmark>() |> ignore
+BenchmarkRunner.Run<PushStream6Benchmark>() |> ignore

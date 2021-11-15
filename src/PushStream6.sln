@@ -3,30 +3,54 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PushStream6", "PushStream6\PushStream6.fsproj", "{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PushStream6", "PushStream6\PushStream6.fsproj", "{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PushStream6.FunctionalTest", "PushStream6.FunctionalTest\PushStream6.FunctionalTest.fsproj", "{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PushStream6.FunctionalTest", "PushStream6.FunctionalTest\PushStream6.FunctionalTest.fsproj", "{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PushStream6.PerformanceTest", "PushStream6.PerformanceTest\PushStream6.PerformanceTest.fsproj", "{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PushStream6.PerformanceTest", "PushStream6.PerformanceTest\PushStream6.PerformanceTest.fsproj", "{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PushStream6.Console", "PushStream6.Console\PushStream6.Console.fsproj", "{374A6D4B-4754-4884-94B6-53C31957921E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Debug|x64.ActiveCfg = Debug|x64
+		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Debug|x64.Build.0 = Debug|x64
 		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Release|x64.ActiveCfg = Release|x64
+		{8AA6EFA7-E1A6-4774-9DB2-CE2DB3AE2FA2}.Release|x64.Build.0 = Release|x64
 		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Debug|x64.ActiveCfg = Debug|x64
+		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Debug|x64.Build.0 = Debug|x64
 		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Release|x64.ActiveCfg = Release|x64
+		{8301795E-9B6A-4F8D-B024-79D3D3CDA71A}.Release|x64.Build.0 = Release|x64
 		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Debug|x64.ActiveCfg = Debug|x64
+		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Debug|x64.Build.0 = Debug|x64
 		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Release|x64.ActiveCfg = Release|x64
+		{41BB28B3-77B6-4DF4-99BC-B49576B1F4ED}.Release|x64.Build.0 = Release|x64
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Debug|x64.ActiveCfg = Debug|x64
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Debug|x64.Build.0 = Debug|x64
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Release|x64.ActiveCfg = Release|x64
+		{374A6D4B-4754-4884-94B6-53C31957921E}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

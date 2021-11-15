@@ -15,6 +15,11 @@ type Properties =
       let a = ofArray vs |>> toArray
       e = a
 
+    static member ``ofList vs |>> toList = vs`` (vs : int list) =
+      let e = vs
+      let a = ofList vs |>> toList
+      e = a
+
     static member ``filter = Array.filter`` f (vs : int array) =
       let e = vs |> Array.filter f
       let a = ofArray vs |>> filter f |>> toArray

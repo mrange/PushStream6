@@ -3,11 +3,13 @@
 // A PushStream is a function that accepts a receiver
 //  The receiver is sent values and respond true if it
 //  wants more values, false otherwiese.
-//  A PushSream returns true if the entire source was
+//  A PushStream returns true if the entire source was
 //  consumed, false otherwise
 type 'T PushStream = ('T -> bool) -> bool
 
 module PushStream =
+
+  // Sources
 
   // Empty PushStream
   [<GeneralizableValue>]
@@ -17,13 +19,6 @@ module PushStream =
   // PushStream from single value
   let inline singleton v : _ PushStream = fun ([<InlineIfLambda>] r) ->
     r v
-
-  // Generates a range of ints in b..e
-  let inline ofRange b e : int PushStream = fun ([<InlineIfLambda>] r) ->
-    let mutable i = b
-    while i <= e && r i do
-      i <- i + 1
-    i > e
 
   // PushStream of Array
   let inline ofArray (vs : _ array) : _ PushStream = fun ([<InlineIfLambda>] r) ->
@@ -42,13 +37,22 @@ module PushStream =
       l <- l.Tail
     l.IsEmpty
 
-  // Collects a PushStream using a collect function
-  let inline collect ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
-    ps (fun v -> (f v) r)
+  // Generates a range of ints in b..e
+  let inline ofRange b e : int PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable i = b
+    while i <= e && r i do
+      i <- i + 1
+    i > e
+
+  // Pipes
 
   // Chooses values in a PushStream using a choice function
   let inline choose ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> match f v with Some c -> r c | _ -> true)
+
+  // Collects a PushStream using a collect function
+  let inline collect ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    ps (fun v -> (f v) r)
 
   // Filters a PushStream using a filter function
   let inline filter ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
@@ -67,6 +71,8 @@ module PushStream =
   let inline drop n ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable rem = n
     ps (fun v -> if rem > 0 then rem <- rem - 1; true else r v)
+
+  // Sinks
 
   // Folds a PushStream using a folder function f and an initial value z
   let inline fold ([<InlineIfLambda>] f) z ([<InlineIfLambda>] ps : _ PushStream) =

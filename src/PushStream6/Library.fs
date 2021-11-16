@@ -29,13 +29,10 @@ module PushStream =
 
   // PushStream of List
   let inline ofList (vs : _ list) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable complete = false
     let mutable l = vs
-    // TODO: This code results in a double eval of .Tail.
-    //  It would be better if we could find a code pattern
-    //  that only eval .Tail once
-    while not l.IsEmpty && r l.Head do
-      l <- l.Tail
-    l.IsEmpty
+    while (match l with hd::tl -> l <- tl; r hd | [] -> complete <- true; false) do ()
+    complete
 
   // Generates a range of ints in b..e
   let inline ofRange b e : int PushStream = fun ([<InlineIfLambda>] r) ->

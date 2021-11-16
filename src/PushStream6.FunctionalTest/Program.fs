@@ -1,9 +1,24 @@
 ﻿open FsCheck
 
+open System.Linq
+
 open PushStream6
 open PushStream
 
-type Properties =
+type ShallowSearchProperties =
+  class
+    static member ``singleton = Array.singleton`` (v : int) =
+      let e = v |> Array.singleton
+      let a = singleton v |>> toArray
+      e = a
+
+    static member ``tryHead = Array.tryHead`` (vs : int array) =
+      let e = vs |> Array.tryHead
+      let a = ofArray vs |>> tryHead
+      e = a
+  end
+
+type DeepSearchProperties =
   class
     static member ``ofRange x y |>> toArray = [|x..y|]`` x y =
       let e = [|x..y|]
@@ -35,12 +50,37 @@ type Properties =
       let e = vs |> Array.collect id
       let a = ofArray vs |>> collect ofArray |>> toArray
       e = a
+
+    static member ``choose = Array.collect`` (vs : int array) =
+      let f v = if (v &&& 1) = 0 then Some (int64 v + 1L) else None
+      let e = vs |> Array.choose f
+      let a = ofArray vs |>> choose f |>> toArray
+      e = a
+
+    static member ``top = Enumerable.Take`` (n : int) (vs : int array) =
+      let e = vs.Take(n).ToArray()
+      let a = ofArray vs |>> top n |>> toArray
+      e = a
+
+    static member ``drop = Enumerable.Skip`` (n : int) (vs : int array) =
+      let e = vs.Skip(n).ToArray()
+      let a = ofArray vs |>> drop n |>> toArray
+      e = a
+
+    static member ``fold = Array.fold`` (vs : int array) =
+      let e = vs |> Array.fold (+) 0
+      let a = ofArray vs |>> fold (+) 0
+      e = a
+
   end
 
 #if DEBUG
-let config = Config.Default
+let shallowSearch = Config.Quick
+let deepSearch    = Config.Quick
 #else
-let config = { Config.Default with MaxTest = 1000; MaxFail = 1000 }
+let shallowSearch = { Config.Default with MaxTest = 100 ; MaxFail = 100   }
+let deepSearch    = { Config.Default with MaxTest = 1000; MaxFail = 1000  }
 #endif
 
-Check.All<Properties> config
+Check.All<ShallowSearchProperties>  shallowSearch
+Check.All<DeepSearchProperties>     deepSearch

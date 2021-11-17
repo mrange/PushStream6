@@ -1,6 +1,6 @@
 # F# Advent 2021  Dec 08 - Fast data pipelines with F#6
 
-There were many interesting improvments for F#6 but one in particular caughtm my eye, the attribute `InlineIfLambda`.
+There were many interesting improvments for F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
 
 The purpose of `InlineIfLambda` is to instruct the compiler to inline the lambda argument if possible. One reason is potentially improved performance.
 
@@ -80,7 +80,7 @@ Can we do better?
 
 ## Building a push stream with `InlineIfLambda`
 
-In a dream world it would be great if we could have a data pipeline with very little overhead in both memory and CPU. Let's try to see what we can do with `InlineIfLambda`.
+In a dream world it would be great if we could have a data pipeline with very little overhead for both memory and CPU. Let's try to see what we can do with `InlineIfLambda`.
 
 `seq` is an alias for `IEnumerable<_>` which is a so called pull data pipeline.
 
@@ -126,8 +126,8 @@ module PushStream =
     ps (fun v -> s <- f s v; true) |> ignore
     s
 
-  // It turns out that if we pipe using |> the F# compiler don't inlines
-  //  the lambdas as we like it to
+  // It turns out that if we pipe using |> the F# compiler don't inline
+  //  the lambdas as we like it to.
   //  So define a more restrictive version of |> that applies function f to a function v
   //  As both f and v are restibted to lambas we can apply InlineIfLambda
   let inline (|>>) ([<InlineIfLambda>] v : _ -> _) ([<InlineIfLambda>] f : _ -> _) = f v
@@ -298,21 +298,13 @@ ofRange   0 10000
 |> fold   (+) 0L
 ```
 
-What happens behind the scenes is that the F# compiler detects that most call of the receiver functions in the pipeline are tail calls. F# then annotates the call with `.tail` attribute.
+Prior to .NET6 the answer would be slow tail calls in .NET, which is why I tried this example. However looking more closely it seems with .NET6 the story of .NET tail calls seems vastly improved.
 
-Tail calls means that `.NET` is allowed to eliminate the stack frame before calling the next function.
-
-In simple cases where `.NET` doesn't need to create a stack frame a tail call is very fast. However, in the general case `.NET` fallbacks on a slower version that eliminates the generated stack frame after the function is done.
-
-When we just passed `ints` through the pipeline there was no need to create a stack frame and a fast tail call was used. With `V2` there's a need for stack frame in each receiver function and `.NET` uses a slow tail call instead.
-
-There are tricks to force `F#` to avoid annotating the call with `.tail` but it's kind of hacky and it performs worse than the fast tail call.
-
-What's fantastic is that using `InlineIfLambda` this problem disappears and `FasterPushStreamV2` performs as well as `FasterPushStream`.
+What is happening in the V2 example is that in the non-inlined version the V2 struct is passed on the stack but in the inlined version the entire V2 struct eliminated.
 
 ## Conclusion
 
-IMHO `InlineIfLambda` is pretty awesome as it can allow is to create abstractions with little overhead where before we had to rewrite the code to an imperative style.
+IMHO `InlineIfLambda` is pretty awesome as it can allow us to create abstractions with little overhead where before we had to rewrite the code to an imperative style.
 
 [Perhaps](https://github.com/dotnet/fsharp/issues/12388) F# should allow the combination of `InlineIfLambda` and `|>` and I would be interested to know if it's possible to combine `InlineIfLambda` with a PushStream that looks like this `  type [<Struct>] 'T PushStream = PS of (('T -> bool) -> bool)` as it makes the type signatures of the PushStream module more easy to understand.
 
@@ -323,6 +315,7 @@ Merry Christmas
 Mårten
 
 ## Appendix : Decompiling
+
 
 Using [dnSpy](https://github.com/dnSpy/dnSpy) we can decompile the compiled IL code into C# to learn what's going on in more details
 
@@ -402,10 +395,60 @@ public long PushStream()
 	return fsharpRef.contents;
 }
 ```
-
 Using `|>` F# don't inline the lambdas and a pipeline is set up. This leads to objects being created and virtual calls for each step in the pipeline. It does surprisingly well but one big problem with this approach is that it might need to fallback to slow tail calls gives a significant performance drop.
 
 ## Appendix : Disassembling
+
+### FasterPushStreamV2
+
+How does the `FasterPushStreamV2` look?
+
+```asm
+.loop:
+  ; Are we done?
+  cmp     edx,2710h
+  jg      .we_are_done
+  ; (fun (V2 (v, w)) -> V2 (v + 1, w))
+  lea     ecx,[rdx+1]
+  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
+  test    cl,1
+  jne     .next
+  ; map (fun (V2 (v, _)) -> int64 v)
+  movsxd  rcx,ecx
+  ; fold (+) 0L
+  add     rax,rcx
+.next
+  ; Increment loop variable
+  inc     edx
+  jmp     .loop
+```
+
+So this looks pretty amazing. `V2` and all virtual calls are completely gone.
+
+### Baseline
+
+```asm
+.loop:
+  ; Increment loop variable (smart enough to pre increment + 1)
+  inc     edx
+  mov     ecx,edx
+  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
+  test    cl,1
+  jne     .next
+  ; map (fun (V2 (v, _)) -> int64 v)
+  movsxd  rcx,ecx
+  add     rax,rcx
+.next
+  ; Increment loop variable
+  cmp     edx,2711h
+  jl      .loop
+```
+
+Here the jitter was smart enough to pre increment with 1 to avoid incrementing by 1 each loop. In addition, checks the loop condition at the end saves a jmp.
+
+Still, `FasterPushStreamV2` is not far off!
+
+###
 
 One can't tell in the decompiled C# code or the IL code that a slow tail call is applied but one can see that F# instructs the JIT:er to use tail calls if possible.
 
@@ -417,7 +460,7 @@ IL_0013: ret
 
 When invoking the next receiver in the PushStream the F# compiler emits `tail.` attribute.
 
-### Decompiling fast tail calls
+### Dissassembling fast tail calls
 
 ```asm
 ; ofRange 0 10000
@@ -559,7 +602,7 @@ Let's look at what happens when slow tail calls are used
   mov     rax,qword ptr [rcx]
   mov     rax,qword ptr [rax+40h]
   mov     rax,qword ptr [rax+20h]
-  ; Use fast tail-call as no stack frame was necessary
+  ; Use fast tail call as no stack frame was necessary
   jmp     rax
 .bail_out:
   ; No it was odd
@@ -587,49 +630,3 @@ Let's look at what happens when slow tail calls are used
   ret
 ```
 
-And finally how does the `FasterPushStreamV2` look?
-
-```asm
-.loop:
-  ; Are we done?
-  cmp     edx,2710h
-  jg      .we_are_done
-  ; (fun (V2 (v, w)) -> V2 (v + 1, w))
-  lea     ecx,[rdx+1]
-  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
-  test    cl,1
-  jne     .next
-  ; map (fun (V2 (v, _)) -> int64 v)
-  movsxd  rcx,ecx
-  ; fold (+) 0L
-  add     rax,rcx
-.next
-  ; Increment loop variable
-  inc     edx
-  jmp     .loop
-```
-
-So this looks pretty amazing. `V2` and all virtual calls are completely gone.
-
-How does the `Baseline` look?
-
-```asm
-.loop:
-  ; Increment loop variable (smart enough to pre increment + 1)
-  inc     edx
-  mov     ecx,edx
-  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
-  test    cl,1
-  jne     .next
-  ; map (fun (V2 (v, _)) -> int64 v)
-  movsxd  rcx,ecx
-  add     rax,rcx
-.next
-  ; Increment loop variable
-  cmp     edx,2711h
-  jl      .loop
-```
-
-Here the jitter was smart enough to pre increment with 1 to avoid incrementing by 1 each loop. In addition, checks the loop condition at the end saves a jmp.
-
-Still, `FasterPushStreamV2` is not far off!

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PushStream6\PushStream6.fsproj" />
+    <PackageReference Include="Cistern.ValueLinq" Version="0.1.14" />
   </ItemGroup>
 
 </Project>

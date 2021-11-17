@@ -3,6 +3,20 @@
 open PushStream6
 open PushStream
 
+module CisternValueLinq =
+    open Cistern.ValueLinq
+
+    [<Struct>] type AddOne         = interface IFunc<int,int>   with member _.Invoke x = x + 1
+    [<Struct>] type FilterEvenInts = interface IFunc<int,bool>  with member _.Invoke x = (x &&& 1) = 0
+    [<Struct>] type IntToInt64     = interface IFunc<int,int64> with member _.Invoke x = int64 x
+    let Fast () =
+        Enumerable
+         .Range(0,10001)
+         .Select(AddOne ())
+         .Where(FilterEvenInts ())
+         .Select(IntToInt64 ())
+         .Sum()
+
 type [<Struct>] V2 = V2 of int*int
 
 let baseline () =
@@ -12,6 +26,8 @@ let baseline () =
     if (i &&& 1) = 0 then
       s <- s + int64 i
   s
+
+let cisternValueLinq () = CisternValueLinq.Fast ()
 
 let pushStream () =
   ofRange   0 10000
@@ -43,7 +59,7 @@ let fasterPushStreamV2 () =
   |>> map     (fun (V2 (v, _)) -> int64 v)
   |>> fold    (+) 0L
 
-let test = baseline
+let test = cisternValueLinq
 
 printfn "Result: %A" <| test ()
 

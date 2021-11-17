@@ -1,10 +1,41 @@
 ﻿open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
 
-open System.Linq
-
 open PushStream6
 open PushStream
+
+module SystemLinq =
+    open System.Linq
+
+    let Invoke () =
+        Enumerable
+         .Range(0,10001)
+         .Select((+) 1)
+         .Where(fun v -> (v &&& 1) = 0)
+         .Select(int64)
+         .Sum()
+
+module CisternValueLinq =
+    open Cistern.ValueLinq
+
+    let Invoke () =
+        Enumerable
+         .Range(0,10001)
+         .Select((+) 1)
+         .Where(fun v -> (v &&& 1) = 0)
+         .Select(int64)
+         .Sum()
+
+    [<Struct>] type AddOne         = interface IFunc<int,int>   with member _.Invoke x = x + 1
+    [<Struct>] type FilterEvenInts = interface IFunc<int,bool>  with member _.Invoke x = (x &&& 1) = 0
+    [<Struct>] type IntToInt64     = interface IFunc<int,int64> with member _.Invoke x = int64 x
+    let Fast () =
+        Enumerable
+         .Range(0,10001)
+         .Select(AddOne ())
+         .Where(FilterEvenInts ())
+         .Select(IntToInt64 ())
+         .Sum()
 
 type [<Struct>] V2 = V2 of int*int
 
@@ -14,7 +45,7 @@ type [<Struct>] V2 = V2 of int*int
 type PushStream6Benchmark() =
   class
 
-    [<Benchmark>]
+    [<Benchmark(Baseline=true)>]
     member x.Baseline() =
       // The baseline performance
       //  We expect this to do the best
@@ -28,7 +59,17 @@ type PushStream6Benchmark() =
     [<Benchmark>]
     member x.Linq() =
       // LINQ performance
-      Enumerable.Range(0,10001).Select((+) 1).Where(fun v -> (v &&& 1) = 0).Select(int64).Sum()
+      SystemLinq.Invoke ()
+
+    [<Benchmark>]
+    member x.ValueLinq() =
+      // LINQ performance
+      CisternValueLinq.Invoke ()
+
+    [<Benchmark>]
+    member x.ValueLinqFast() =
+      // LINQ performance
+      CisternValueLinq.Fast ()
 
     [<Benchmark>]
     member x.Array () =

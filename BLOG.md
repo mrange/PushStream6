@@ -19,8 +19,12 @@ Without `InlineIfLambda` would be inlined but invoking `action` would be a virtu
 // What we write
 let mutable sum = 0
 myArray |> Array.iter (fun v -> sum <- sum + v)
+```
 
-// What it could evaluate to in F# prior to InlineIfLambda
+Before `InlineIfLambda` this is what we would get
+
+```fsharp
+// What we get before F#6
 
 let sum = ref 0
 let action v = sum := !sum + v
@@ -36,9 +40,9 @@ Even older versions of F# 5 sometimes do inlining but it's based on a complexity
 
 So the above code could actually be inlined, or not inlined depending on what the complexity analysis thinks.
 
-With F# 6 we are guaranteed to get:
-
 ```fsharp
+// What we get with F#6
+
 let mutable sum = 0
 checkNonNull "array" myArray
 for i = 0 to myArray.Length-1 do
@@ -88,6 +92,8 @@ The consumer pulls value through the pipeline by calling `MoveNext` and `Current
 
 Another approach is to let the producer of data push data through the pipeline. This kind of pipeline tends to be simpler to implement and more performant.
 
+What also makes PushStream applicable for `InlineIfLambda` is that it can be implemented as nested lambdas so `InlineIfLambda` should help.
+
 A variant of push streams would look like this:
 
 ```fsharp
@@ -99,13 +105,17 @@ A `PushStream<_>` is a function that accepts a receiver function `'T->bool` and 
 A `PushStream` module could then look like this:
 
 ```fsharp
-module PushStream =
-  // 'T PushStream is an alternative syntax for PushStream<'T>
-  type 'T PushStream = ('T -> bool) -> bool
+// 'T PushStream is an alternative syntax for PushStream<'T>
+type 'T PushStream = ('T -> bool) -> bool
 
+module PushStream =
   // Generates a range of ints in b..e
   //  Note the use of [<InlineIfLambda>] to inline the receiver function r
   let inline ofRange b e : int PushStream = fun ([<InlineIfLambda>] r) ->
+      // This easy to implement in that we loop over the range b..e and
+      //  call the receiver function r until either it returns false
+      //  or we reach the end of the range
+      //  Thanks to InlineIfLambda r should be inlined
       let mutable i = b
       while i <= e && r i do
         i <- i + 1
@@ -114,22 +124,38 @@ module PushStream =
   // Filters a PushStream using a filter function
   //  Note the use of [<InlineIfLambda>] to inline both the filter function f and the PushStream function ps
   let inline filter ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    // ps is the previous push stream which we invoke with our receiver lambda
+    //  Our receiver lambda checks if each received value passes filter function f
+    //  If it does we pass the value to r, otherwise we return true to continue
+    //  f, ps and r are lambdas that should be inlined due to InlineIfLambda
     ps (fun v -> if f v then r v else true)
 
   // Maps a PushStream using a mapping function
   let inline map ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    // ps is the previous push stream which we invoke with our receiver lambda
+    //  Our receiver lambda maps each received value with map function f and
+    //  pass the mapped value to r
+    //  If it does we pass the value to r, otherwise we return true to continue
+    //  f, ps and r are lambdas that should be inlined due to InlineIfLambda
     ps (fun v -> r (f v))
 
   // Folds a PushStream using a folder function f and an initial value z
   let inline fold ([<InlineIfLambda>] f) z ([<InlineIfLambda>] ps : _ PushStream) =
     let mutable s = z
+    // ps is the previous push stream which we invoke with our receiver lambda
+    //  Our receiver lambda folds the state and value with folder function f
+    //  Returns true to continue looping
+    //  f and ps are lambdas that should be inlined due to InlineIfLambda
+    //  This also means that s should not need to be a ref cell which avoids
+    //  some memory pressure
     ps (fun v -> s <- f s v; true) |> ignore
     s
 
   // It turns out that if we pipe using |> the F# compiler don't inline
   //  the lambdas as we like it to.
-  //  So define a more restrictive version of |> that applies function f to a function v
-  //  As both f and v are restibted to lambas we can apply InlineIfLambda
+  //  So define a more restrictive version of |> that applies function f
+  //  to a function v
+  //  As both f and v are restricted to lambas we can apply InlineIfLambda
   let inline (|>>) ([<InlineIfLambda>] v : _ -> _) ([<InlineIfLambda>] f : _ -> _) = f v
 ```
 
@@ -192,7 +218,7 @@ type PushStream6Benchmark() =
     [<Benchmark>]
     member x.Array () =
       // Array performance
-      [|0..10000|]
+      Array.init 10000 id
       |> Array.map    ((+) 1)
       |> Array.filter (fun v -> (v &&& 1) = 0)
       |> Array.map    int64
@@ -262,16 +288,16 @@ Intel Core i5-3570K CPU 3.40GHz (Ivy Bridge), 1 CPU, 4 logical and 4 physical co
 
 Job=RyuJitX64  Jit=RyuJit  Platform=X64
 
-|             Method |       Mean |     Error |    StdDev |   Gen 0 | Allocated |
-|------------------- |-----------:|----------:|----------:|--------:|----------:|
-|           Baseline |   6.763 us | 0.0616 us | 0.0576 us |       - |         - |
-|               Linq | 144.198 us | 0.5995 us | 0.4680 us |       - |     400 B |
-|              Array | 114.487 us | 0.5742 us | 0.5371 us | 86.1816 | 272,864 B |
-|                Seq | 283.882 us | 0.7036 us | 0.6581 us |       - |     480 B |
-|         PushStream |  33.488 us | 0.0903 us | 0.0844 us |       - |     168 B |
-|   FasterPushStream |   8.843 us | 0.0219 us | 0.0195 us |       - |         - |
-|       PushStreamV2 | 148.447 us | 0.4153 us | 0.3884 us |       - |     216 B |
-| FasterPushStreamV2 |   8.820 us | 0.0363 us | 0.0322 us |       - |         - |
+|             Method |       Mean |     Error |    StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
+|------------------- |-----------:|----------:|----------:|------:|--------:|--------:|----------:|
+|           Baseline |   6.807 us | 0.0617 us | 0.0577 us |  1.00 |    0.00 |       - |         - |
+|               Linq | 148.106 us | 0.5009 us | 0.4685 us | 21.76 |    0.19 |       - |     400 B |
+|              Array |  53.630 us | 0.1744 us | 0.1631 us |  7.88 |    0.08 | 44.7388 | 141,368 B |
+|                Seq | 290.103 us | 0.5075 us | 0.4499 us | 42.59 |    0.34 |       - |     480 B |
+|         PushStream |  34.214 us | 0.0966 us | 0.0904 us |  5.03 |    0.04 |       - |     168 B |
+|   FasterPushStream |   9.011 us | 0.0231 us | 0.0216 us |  1.32 |    0.01 |       - |         - |
+|       PushStreamV2 | 151.564 us | 0.3724 us | 0.3301 us | 22.25 |    0.18 |       - |     216 B |
+| FasterPushStreamV2 |   9.012 us | 0.0385 us | 0.0360 us |  1.32 |    0.01 |       - |         - |
 ```
 
 The imperative `Baseline` does the best as we expect.
@@ -306,7 +332,7 @@ What is happening in the V2 example is that in the non-inlined version the V2 st
 
 IMHO `InlineIfLambda` is pretty awesome as it can allow us to create abstractions with little overhead where before we had to rewrite the code to an imperative style.
 
-[Perhaps](https://github.com/dotnet/fsharp/issues/12388) F# should allow the combination of `InlineIfLambda` and `|>` and I would be interested to know if it's possible to combine `InlineIfLambda` with a PushStream that looks like this `  type [<Struct>] 'T PushStream = PS of (('T -> bool) -> bool)` as it makes the type signatures of the PushStream module more easy to understand.
+[Perhaps](https://github.com/dotnet/fsharp/issues/12388) F# should allow the combination of `InlineIfLambda` and `|>`. Also I would be interested to know if it's possible to combine `InlineIfLambda` with a PushStream that looks like this `type [<Struct>] 'T PushStream = PS of (('T -> bool) -> bool)` as it makes the type signatures of the PushStream module more easy to understand.
 
 In the meantime, I wonder if the presence of `inline` and `InlineIfLambda` makes F# the best `.NET` language to write performant code in.
 

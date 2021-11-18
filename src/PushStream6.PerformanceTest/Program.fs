@@ -44,7 +44,6 @@ type [<Struct>] V2 = V2 of int*int
 //[<RyuJitX86Job>]
 type PushStream6Benchmark() =
   class
-
     [<Benchmark(Baseline=true)>]
     member x.Baseline() =
       // The baseline performance
@@ -74,7 +73,7 @@ type PushStream6Benchmark() =
     [<Benchmark>]
     member x.Array () =
       // Array performance
-      [|0..10000|]
+      Array.init 10000 id
       |> Array.map    ((+) 1)
       |> Array.filter (fun v -> (v &&& 1) = 0)
       |> Array.map    int64

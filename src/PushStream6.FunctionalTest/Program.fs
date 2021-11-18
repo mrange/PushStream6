@@ -67,6 +67,26 @@ type DeepSearchProperties =
       let a = ofArray vs |>> drop n |>> toArray
       e = a
 
+    static member ``distinctBy = Array.distinctBy`` (vs : (int*int) array) =
+      let e = vs |> Array.distinctBy fst
+      let a = ofArray vs |>> distinctBy fst |>> toArray
+      e = a
+
+    static member ``unionBy = Enumerable.UnionBy`` (first : (int*int) array) (second : (int*int) array) =
+      let e = first.UnionBy(second, fst).ToArray()
+      let a = ofArray first |>> unionBy fst (ofArray second) |>> toArray
+      e = a
+
+    static member ``intersectBy = Enumerable.IntersectBy`` (first : (int*int) array) (second : (int*int) array) =
+      let e = first.IntersectBy(second.Select(fst), fst).ToArray()
+      let a = ofArray first |>> intersectBy fst (ofArray second) |>> toArray
+      e = a
+
+    static member ``differenceBy = Enumerable.ExceptBy`` (first : (int*int) array) (second : (int*int) array) =
+      let e = first.ExceptBy(second.Select(fst), fst).ToArray()
+      let a = ofArray first |>> differenceBy fst (ofArray second) |>> toArray
+      e = a
+
     static member ``fold = Array.fold`` (vs : int array) =
       let e = vs |> Array.fold (+) 0
       let a = ofArray vs |>> fold (+) 0

@@ -8,6 +8,7 @@
 type 'T PushStream = ('T -> bool) -> bool
 
 module PushStream =
+  open System.Collections.Generic
 
   // Sources
 
@@ -68,6 +69,25 @@ module PushStream =
   let inline drop n ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable rem = n
     ps (fun v -> if rem > 0 then rem <- rem - 1; true else r v)
+
+  let inline distinctBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let set = HashSet<_> ()
+    ps (fun v -> if set.Add (f v) then r v else true)
+
+  let inline unionBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let set = HashSet<_> ()
+    ps0 (fun v -> if set.Add (f v) then r v else true)
+    && ps1 (fun v -> if set.Add (f v) then r v else true)
+
+  let inline intersectBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let set = HashSet<_> ()
+    ps1 (fun v -> let _ = set.Add (f v) in true)
+    && ps0 (fun v -> if set.Remove (f v) then r v else true)
+
+  let inline differenceBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let set = HashSet<_> ()
+    ps1 (fun v -> let _ = set.Add (f v) in true)
+    && ps0 (fun v -> if set.Add (f v) then r v else true)
 
   // Sinks
 

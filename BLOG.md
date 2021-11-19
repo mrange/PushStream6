@@ -308,7 +308,32 @@ The imperative `Baseline` does the best as we expect.
 
 We see that `PushStream` does better thanks to PushStreams having less overhead but what's real interesting is `FasterPushStream` where `InlineIfLambda` is applied. The performance of the `PushStream` pipeline + `|>>` is very comparable to the `Baseline` and it also don't allocate any memory.
 
-This is pretty amazing to me. Using appealing abstractions such `PushStream` with little overhead.
+The above benchmark iterated used an input range `0..10000` but what happens if we change to a shorter range `0..10`:
+
+```
+BenchmarkDotNet=v0.13.1, OS=Windows 10.0.19044.1379 (21H2)
+Intel Core i5-3570K CPU 3.40GHz (Ivy Bridge), 1 CPU, 4 logical and 4 physical cores
+.NET SDK=6.0.100
+  [Host]    : .NET 6.0.0 (6.0.21.52210), X64 RyuJIT DEBUG
+  RyuJitX64 : .NET 6.0.0 (6.0.21.52210), X64 RyuJIT
+
+Job=RyuJitX64  Jit=RyuJit  Platform=X64
+
+|             Method |       Mean |     Error |    StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+|------------------- |-----------:|----------:|----------:|------:|--------:|-------:|----------:|
+|           Baseline |   8.746 ns | 0.0287 ns | 0.0269 ns |  1.00 |    0.00 |      - |         - |
+|               Linq | 290.427 ns | 0.6953 ns | 0.6164 ns | 33.22 |    0.13 | 0.1273 |     400 B |
+|              Array | 104.258 ns | 0.7117 ns | 0.6658 ns | 11.92 |    0.09 | 0.0764 |     240 B |
+|                Seq | 481.877 ns | 1.6078 ns | 1.4252 ns | 55.11 |    0.22 | 0.1526 |     480 B |
+|         PushStream |  74.861 ns | 0.2804 ns | 0.2623 ns |  8.56 |    0.03 | 0.0535 |     168 B |
+|   FasterPushStream |  10.761 ns | 0.0302 ns | 0.0267 ns |  1.23 |    0.00 |      - |         - |
+|       PushStreamV2 | 206.379 ns | 0.4882 ns | 0.4567 ns | 23.60 |    0.10 | 0.0687 |     216 B |
+| FasterPushStreamV2 |  10.736 ns | 0.0175 ns | 0.0164 ns |  1.23 |    0.00 |      - |         - |
+```
+
+The `FasterPushStream` does even better thanks to that it doesn't need to setup a pipeline. `Array` memory overhead goes from clearly the biggest overhead to about average as the overhead of the pipeline created for `Linq` and `Seq` is comparable to that of the intermediate arrays created by `Array`.
+
+Overall, this is pretty amazing to me. Using appealing abstractions such `PushStream` with little overhead.
 
 But what about `PushStreamV2` why does that pipeline perform so much worse than `PushStream`?
 
@@ -327,6 +352,13 @@ ofRange   0 10000
 Prior to .NET6 the answer would be slow tail calls in .NET, which is why I tried this example. However looking more closely it seems with .NET6 the story of .NET tail calls seems vastly improved.
 
 What is happening in the V2 example is that in the non-inlined version the V2 struct is passed on the stack but in the inlined version the entire V2 struct eliminated.
+
+## Some issues
+
+> TODO:
+
+1. `|>` vs `|>>`
+2. `InlineIfLambda` can fail to inline for hard to understand reasons.
 
 ## Conclusion
 

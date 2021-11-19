@@ -87,6 +87,12 @@ type DeepSearchProperties =
       let a = ofArray first |>> differenceBy fst (ofArray second) |>> toArray
       e = a
 
+    static member ``chunkBySize = Array.chunkBySize`` n (vs : int array) =
+      let n = abs n + 1
+      let e = vs |> Array.chunkBySize n
+      let a = ofArray vs |>> chunkBySize n |>> toArray
+      e = a
+
     static member ``fold = Array.fold`` (vs : int array) =
       let e = vs |> Array.fold (+) 0
       let a = ofArray vs |>> fold (+) 0

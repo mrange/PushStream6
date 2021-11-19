@@ -45,11 +45,11 @@ module PushStream =
   // Pipes
 
   // Chooses values in a PushStream using a choice function
-  let inline choose ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline choose ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> match f v with Some c -> r c | _ -> true)
 
   // Collects a PushStream using a collect function
-  let inline collect ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline collect ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> (f v) r)
 
   // Filters a PushStream using a filter function
@@ -57,37 +57,43 @@ module PushStream =
     ps (fun v -> if f v then r v else true)
 
   // Maps a PushStream using a mapping function
-  let inline map ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline map ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> r (f v))
 
   // Similar to take but don't throw if less than n elements in PushStream
-  let inline top n ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline top n ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable rem = n
     ps (fun v -> if rem > 0 then rem <- rem - 1; r v else false)
 
   // Similar to skip but don't throw if less than n elements in PushStream
-  let inline drop n ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline drop n ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable rem = n
     ps (fun v -> if rem > 0 then rem <- rem - 1; true else r v)
 
-  let inline distinctBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline distinctBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let set = HashSet<_> ()
     ps (fun v -> if set.Add (f v) then r v else true)
 
-  let inline unionBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline unionBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let set = HashSet<_> ()
     ps0 (fun v -> if set.Add (f v) then r v else true)
     && ps1 (fun v -> if set.Add (f v) then r v else true)
 
-  let inline intersectBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline intersectBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let set = HashSet<_> ()
     ps1 (fun v -> let _ = set.Add (f v) in true)
     && ps0 (fun v -> if set.Remove (f v) then r v else true)
 
-  let inline differenceBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream)  : _ PushStream = fun ([<InlineIfLambda>] r) ->
+  let inline differenceBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps1 : _ PushStream) ([<InlineIfLambda>] ps0 : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let set = HashSet<_> ()
     ps1 (fun v -> let _ = set.Add (f v) in true)
     && ps0 (fun v -> if set.Add (f v) then r v else true)
+
+  let inline chunkBySize (sz : int) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    if sz <= 0 then failwith "sz must be 1 or greater"
+    let vs = ResizeArray sz
+    ps (fun v -> vs.Add v; if vs.Count < sz then true else r (vs.ToArray()) && (vs.Clear (); true))
+    && (if vs.Count > 0 then r (vs.ToArray()) else true)
 
   // Sinks
 

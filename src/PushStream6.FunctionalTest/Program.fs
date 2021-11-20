@@ -7,6 +7,7 @@ open PushStream
 
 type ShallowSearchProperties =
   class
+
     static member ``singleton = Array.singleton`` (v : int) =
       let e = v |> Array.singleton
       let a = singleton v |>> toArray
@@ -16,10 +17,12 @@ type ShallowSearchProperties =
       let e = vs |> Array.tryHead
       let a = ofArray vs |>> tryHead
       e = a
+
   end
 
 type DeepSearchProperties =
   class
+
     static member ``ofRange x y |>> toArray = [|x..y|]`` x y =
       let e = [|x..y|]
       let a = ofRange x y |>> toArray
@@ -93,9 +96,24 @@ type DeepSearchProperties =
       let a = ofArray vs |>> chunkBySize n |>> toArray
       e = a
 
+    static member ``forAll = Array.forAll`` x (vs : int array) =
+      let mutable esum = 0
+      let f y = esum <- esum + y; x > y
+      let mutable asum = 0
+      let g y = asum <- asum + y; x > y
+
+      let e = vs |> Array.forall f
+      let a = ofArray vs |>> forAll g
+      e = a && esum = asum
+
     static member ``fold = Array.fold`` (vs : int array) =
       let e = vs |> Array.fold (+) 0
       let a = ofArray vs |>> fold (+) 0
+      e = a
+
+    static member ``sortBy = Array.sortBy`` (vs : (int*int) array) =
+      let e = vs |> Array.sortBy fst
+      let a = ofArray vs |>> sortBy fst |>> toArray
       e = a
 
   end

@@ -28,6 +28,13 @@ module PushStream =
       i <- i + 1
     i = vs.Length
 
+  // PushStream of ResizeArray
+  let inline ofResizeArray (vs : _ ResizeArray) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable i = 0
+    while i < vs.Count && r vs.[i] do
+      i <- i + 1
+    i = vs.Count
+
   // PushStream of List
   let inline ofList (vs : _ list) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable complete = false
@@ -97,6 +104,9 @@ module PushStream =
 
   // Sinks
 
+  let inline forAll ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) =
+    ps f
+
   // Folds a PushStream using a folder function f and an initial value z
   let inline fold ([<InlineIfLambda>] f) z ([<InlineIfLambda>] ps : _ PushStream) =
     let mutable s = z
@@ -127,6 +137,12 @@ module PushStream =
   // List from PushStream
   let inline toList ([<InlineIfLambda>] ps : _ PushStream) : _ list =
     List.rev (toReverseList ps)
+
+  let inline sortBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let ra = toResizeArray 16 ps
+    let c  = { new IComparer<_> with override x.Compare (l, r) = compare (f l) (f r) }
+    ra.Sort c
+    ofResizeArray ra r
 
   // It turns out that if we pipe using |> the F# compiler don't inlines
   //  the lambdas as we like it to

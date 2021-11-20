@@ -13,21 +13,6 @@ type ShallowSearchProperties =
       let a = singleton v |>> toArray
       e = a
 
-    static member ``tryHead = Array.tryHead`` (vs : int array) =
-      let e = vs |> Array.tryHead
-      let a = ofArray vs |>> tryHead
-      e = a
-
-  end
-
-type DeepSearchProperties =
-  class
-
-    static member ``ofRange x y |>> toArray = [|x..y|]`` x y =
-      let e = [|x..y|]
-      let a = ofRange x y |>> toArray
-      e = a
-
     static member ``ofArray vs |>> toArray = vs`` (vs : int array) =
       let e = vs
       let a = ofArray vs |>> toArray
@@ -47,6 +32,21 @@ type DeepSearchProperties =
       let f v = int64 (v + 1)
       let e   = vs |> Array.map f
       let a   = ofArray vs |>> map f |>> toArray
+      e = a
+
+    static member ``tryHead = Array.tryHead`` (vs : int array) =
+      let e = vs |> Array.tryHead
+      let a = ofArray vs |>> tryHead
+      e = a
+
+  end
+
+type DeepSearchProperties =
+  class
+
+    static member ``ofRange x y |>> toArray = [|x..y|]`` x y =
+      let e = [|x..y|]
+      let a = ofRange x y |>> toArray
       e = a
 
     static member ``collect = Array.collect`` (vs : int array array) =

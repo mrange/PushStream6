@@ -1,23 +1,18 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Platforms>AnyCPU;x64</Platforms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Program.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
-    <PackageReference Include="Cistern.ValueLinq" Version="0.1.14" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PushStream6.Benchmark\PushStream6.Benchmark.csproj" />
-    <ProjectReference Include="..\PushStream6\PushStream6.fsproj" />
   </ItemGroup>
 
 </Project>

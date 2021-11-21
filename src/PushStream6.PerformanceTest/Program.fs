@@ -1,8 +1,12 @@
 ﻿open BenchmarkDotNet.Attributes
+open BenchmarkDotNet.Configs
+open BenchmarkDotNet.Jobs
 open BenchmarkDotNet.Running
 
 open PushStream6
 open PushStream
+
+open PushStream6.Benchmark
 
 module Literals =
   [<Literal>]
@@ -45,8 +49,9 @@ module CisternValueLinq =
 
 type [<Struct>] V2 = V2 of int*int
 
+[<Config(typeof<BenchmarkConfig>)>]
 [<MemoryDiagnoser>]
-[<RyuJitX64Job>]
+//[<RyuJitX64Job>]
 //[<RyuJitX86Job>]
 type PushStream6Benchmark() =
   class
@@ -68,12 +73,12 @@ type PushStream6Benchmark() =
 
     [<Benchmark>]
     member x.ValueLinq() =
-      // LINQ performance
+      // manofstick's CisternValueLinq performance
       CisternValueLinq.Invoke ()
 
     [<Benchmark>]
     member x.ValueLinqFast() =
-      // LINQ performance
+      // manofstick's CisternValueLinq performance
       CisternValueLinq.Fast ()
 
     [<Benchmark>]
@@ -115,7 +120,7 @@ type PushStream6Benchmark() =
 
     [<Benchmark>]
     member x.PushStreamV2 () =
-      // This test is hurt by tail-calls
+      // This test was hurt by tail-calls prior to .NET6
       ofRange   0 Size
       |> map    (fun v -> V2 (v, 0))
       |> map    (fun (V2 (v, w)) -> V2 (v + 1, w))
@@ -131,6 +136,7 @@ type PushStream6Benchmark() =
       |>> filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
       |>> map     (fun (V2 (v, _)) -> int64 v)
       |>> fold    (+) 0L
+
   end
 
 BenchmarkRunner.Run<PushStream6Benchmark>() |> ignore

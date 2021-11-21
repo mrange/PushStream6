@@ -8,14 +8,14 @@ namespace PushStream6.Benchmark
         public BenchmarkConfig()
         {
             // Use .NET 6.0 default mode:
-            AddJob(Job.Default.WithId("Default mode"));
+            AddJob(Job.Default.WithId("STD"));
 
             // Use Dynamic PGO mode:
-            AddJob(Job.Default.WithId("Dynamic PGO")
+            AddJob(Job.Default.WithId("PGO")
                 .WithEnvironmentVariables(
-                    new EnvironmentVariable("DOTNET_TieredPGO", "1"),
+                    new EnvironmentVariable("DOTNET_TieredPGO"          , "1"),
                     new EnvironmentVariable("DOTNET_TC_QuickJitForLoops", "1"),
-                    new EnvironmentVariable("DOTNET_ReadyToRun", "0")));
+                    new EnvironmentVariable("DOTNET_ReadyToRun"         , "0")));
         }
     }
 }

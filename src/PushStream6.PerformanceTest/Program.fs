@@ -10,7 +10,7 @@ open PushStream6.Benchmark
 
 module Literals =
   [<Literal>]
-  let Size = 10
+  let Size = 10000
 
 open Literals
 

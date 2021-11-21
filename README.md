@@ -4,25 +4,30 @@ Push Stream for F#6
 
 ## Justification
 
+### 10000 iterations
+
 ```
-BenchmarkDotNet=v0.13.1, OS=Windows 10.0.19044.1348 (21H2)
-Intel Core i5-3570K CPU 3.40GHz (Ivy Bridge), 1 CPU, 4 logical and 4 physical cores
-.NET SDK=6.0.100
-  [Host]    : .NET 6.0.0 (6.0.21.52210), X64 RyuJIT DEBUG
-  RyuJitX64 : .NET 6.0.0 (6.0.21.52210), X64 RyuJIT
-
-Job=RyuJitX64  Jit=RyuJit  Platform=X64
-
-|             Method |       Mean |     Error |    StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
-|------------------- |-----------:|----------:|----------:|------:|--------:|--------:|----------:|
-|           Baseline |   6.807 us | 0.0617 us | 0.0577 us |  1.00 |    0.00 |       - |         - |
-|               Linq | 148.106 us | 0.5009 us | 0.4685 us | 21.76 |    0.19 |       - |     400 B |
-|          ValueLinq |  83.283 us | 0.1882 us | 0.1761 us | 12.23 |    0.11 |       - |     192 B |
-|      ValueLinqFast |  19.165 us | 0.0660 us | 0.0618 us |  2.82 |    0.03 |       - |         - |
-|              Array |  53.630 us | 0.1744 us | 0.1631 us |  7.88 |    0.08 | 44.7388 | 141,368 B |
-|                Seq | 290.103 us | 0.5075 us | 0.4499 us | 42.59 |    0.34 |       - |     480 B |
-|         PushStream |  34.214 us | 0.0966 us | 0.0904 us |  5.03 |    0.04 |       - |     168 B |
-|   FasterPushStream |   9.011 us | 0.0231 us | 0.0216 us |  1.32 |    0.01 |       - |         - |
-|       PushStreamV2 | 151.564 us | 0.3724 us | 0.3301 us | 22.25 |    0.18 |       - |     216 B |
-| FasterPushStreamV2 |   9.012 us | 0.0385 us | 0.0360 us |  1.32 |    0.01 |       - |         - |
+|             Method | Job |       Mean |     Error |    StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
+|------------------- |---- |-----------:|----------:|----------:|------:|--------:|--------:|----------:|
+|           Baseline | STD |   6.674 μs | 0.0613 μs | 0.0574 μs |  1.00 |    0.00 |       - |         - |
+|               Linq | STD | 143.922 μs | 0.1871 μs | 0.1659 μs | 21.57 |    0.19 |       - |     400 B |
+|          ValueLinq | STD |  81.678 μs | 0.0974 μs | 0.0863 μs | 12.24 |    0.10 |       - |     192 B |
+|      ValueLinqFast | STD |  18.784 μs | 0.0197 μs | 0.0184 μs |  2.81 |    0.02 |       - |         - |
+|              Array | STD |  52.400 μs | 0.1745 μs | 0.1633 μs |  7.85 |    0.06 | 44.7388 | 141,368 B |
+|                Seq | STD | 273.545 μs | 0.3869 μs | 0.3231 μs | 40.99 |    0.37 |       - |     480 B |
+|         PushStream | STD |  33.492 μs | 0.0263 μs | 0.0233 μs |  5.02 |    0.05 |       - |     168 B |
+|   FasterPushStream | STD |   8.830 μs | 0.0402 μs | 0.0376 μs |  1.32 |    0.01 |       - |         - |
+|       PushStreamV2 | STD | 148.458 μs | 0.2082 μs | 0.1947 μs | 22.25 |    0.20 |       - |     216 B |
+| FasterPushStreamV2 | STD |   8.846 μs | 0.0284 μs | 0.0266 μs |  1.33 |    0.01 |       - |         - |
+|                    |     |            |           |           |       |         |         |           |
+|           Baseline | PGO |   6.743 μs | 0.0770 μs | 0.0720 μs |  1.00 |    0.00 |       - |         - |
+|               Linq | PGO |  86.903 μs | 0.1562 μs | 0.1461 μs | 12.89 |    0.14 |  0.1221 |     400 B |
+|          ValueLinq | PGO |  81.627 μs | 0.1038 μs | 0.0921 μs | 12.09 |    0.13 |       - |     192 B |
+|      ValueLinqFast | PGO |  18.767 μs | 0.0136 μs | 0.0121 μs |  2.78 |    0.03 |       - |         - |
+|              Array | PGO |  41.716 μs | 0.1588 μs | 0.1485 μs |  6.19 |    0.07 | 44.7388 | 141,368 B |
+|                Seq | PGO | 142.685 μs | 0.5470 μs | 0.5117 μs | 21.16 |    0.27 |       - |     480 B |
+|         PushStream | PGO |  34.763 μs | 0.1340 μs | 0.1253 μs |  5.16 |    0.06 |       - |     168 B |
+|   FasterPushStream | PGO |   8.784 μs | 0.0568 μs | 0.0531 μs |  1.30 |    0.02 |       - |         - |
+|       PushStreamV2 | PGO | 146.289 μs | 0.5811 μs | 0.5436 μs | 21.70 |    0.26 |       - |     216 B |
+| FasterPushStreamV2 | PGO |   8.761 μs | 0.0630 μs | 0.0589 μs |  1.30 |    0.02 |       - |         - |
 ```

@@ -31,3 +31,31 @@ Push Stream for F#6
 |       PushStreamV2 | PGO | 146.289 μs | 0.5811 μs | 0.5436 μs | 21.70 |    0.26 |       - |     216 B |
 | FasterPushStreamV2 | PGO |   8.761 μs | 0.0630 μs | 0.0589 μs |  1.30 |    0.02 |       - |         - |
 ```
+
+### 10 iterations
+
+```
+|             Method | Job |       Mean |     Error |    StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+|------------------- |---- |-----------:|----------:|----------:|------:|--------:|-------:|----------:|
+|           Baseline | STD |   8.535 ns | 0.0429 ns | 0.0402 ns |  1.00 |    0.00 |      - |         - |
+|               Linq | STD | 280.146 ns | 0.5770 ns | 0.5115 ns | 32.82 |    0.16 | 0.1273 |     400 B |
+|          ValueLinq | STD | 178.311 ns | 0.7306 ns | 0.6834 ns | 20.89 |    0.08 | 0.0610 |     192 B |
+|      ValueLinqFast | STD |  73.944 ns | 0.2865 ns | 0.2539 ns |  8.66 |    0.04 |      - |         - |
+|              Array | STD | 101.660 ns | 0.5682 ns | 0.5315 ns | 11.91 |    0.08 | 0.0764 |     240 B |
+|                Seq | STD | 464.694 ns | 2.1452 ns | 2.0066 ns | 54.44 |    0.27 | 0.1526 |     480 B |
+|         PushStream | STD |  73.830 ns | 0.1123 ns | 0.0938 ns |  8.65 |    0.04 | 0.0535 |     168 B |
+|   FasterPushStream | STD |  10.465 ns | 0.0363 ns | 0.0339 ns |  1.23 |    0.01 |      - |         - |
+|       PushStreamV2 | STD | 200.468 ns | 0.6664 ns | 0.5907 ns | 23.48 |    0.13 | 0.0687 |     216 B |
+| FasterPushStreamV2 | STD |  10.410 ns | 0.0102 ns | 0.0090 ns |  1.22 |    0.01 |      - |         - |
+|                    |     |            |           |           |       |         |        |           |
+|           Baseline | PGO |  10.761 ns | 0.0805 ns | 0.0714 ns |  1.00 |    0.00 |      - |         - |
+|               Linq | PGO | 208.911 ns | 0.8347 ns | 0.7808 ns | 19.42 |    0.15 | 0.1273 |     400 B |
+|          ValueLinq | PGO | 179.789 ns | 0.5231 ns | 0.4893 ns | 16.71 |    0.13 | 0.0610 |     192 B |
+|      ValueLinqFast | PGO |  73.129 ns | 0.8426 ns | 0.7882 ns |  6.81 |    0.06 |      - |         - |
+|              Array | PGO |  81.717 ns | 0.3463 ns | 0.2892 ns |  7.59 |    0.06 | 0.0764 |     240 B |
+|                Seq | PGO | 320.859 ns | 1.3163 ns | 1.2313 ns | 29.82 |    0.20 | 0.1526 |     480 B |
+|         PushStream | PGO |  72.503 ns | 0.1660 ns | 0.1386 ns |  6.73 |    0.04 | 0.0535 |     168 B |
+|   FasterPushStream | PGO |  10.894 ns | 0.0398 ns | 0.0372 ns |  1.01 |    0.01 |      - |         - |
+|       PushStreamV2 | PGO | 198.294 ns | 0.7521 ns | 0.7035 ns | 18.43 |    0.11 | 0.0687 |     216 B |
+| FasterPushStreamV2 | PGO |  10.417 ns | 0.0547 ns | 0.0511 ns |  0.97 |    0.01 |      - |         - |
+```

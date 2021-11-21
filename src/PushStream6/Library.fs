@@ -10,6 +10,18 @@ type 'T PushStream = ('T -> bool) -> bool
 module PushStream =
   open System.Collections.Generic
 
+  module Details =
+    let inline getEnumerator< ^T, ^U when ^T : (member GetEnumerator: unit -> ^U)> (v : ^T) : ^U =
+      (^T : (member GetEnumerator: unit -> ^U) v)
+    let inline current< ^T, ^U when ^T : (member Current: ^U)> (v : ^T) : ^U =
+      (^T : (member Current: ^U) v)
+    let inline moveNext< ^T when ^T : (member MoveNext: unit -> bool)> (v : ^T) : bool =
+      (^T : (member MoveNext: unit -> bool) v)
+    let inline dispose< ^T when ^T : (member Dispose: unit -> unit)> (v : ^T) : unit =
+      (^T : (member Dispose: unit -> unit) v)
+
+  open Details
+
   // Sources
 
   // Empty PushStream
@@ -28,13 +40,6 @@ module PushStream =
       i <- i + 1
     i = vs.Length
 
-  // PushStream of ResizeArray
-  let inline ofResizeArray (vs : _ ResizeArray) : _ PushStream = fun ([<InlineIfLambda>] r) ->
-    let mutable i = 0
-    while i < vs.Count && r vs.[i] do
-      i <- i + 1
-    i = vs.Count
-
   // PushStream of List
   let inline ofList (vs : _ list) : _ PushStream = fun ([<InlineIfLambda>] r) ->
     let mutable complete = false
@@ -48,6 +53,29 @@ module PushStream =
     while i <= e && r i do
       i <- i + 1
     i > e
+
+  // PushStream of ResizeArray
+  let inline ofResizeArray (vs : _ ResizeArray) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable i = 0
+    while i < vs.Count && r vs.[i] do
+      i <- i + 1
+    i = vs.Count
+
+  // PushStream of Seq
+  let inline ofSeq (vs : _ seq) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable complete = false
+    use mutable e = vs.GetEnumerator ()
+    while (complete <- e.MoveNext (); complete) && r e.Current do ()
+    complete
+
+  let inline ofValueSeq vs : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let mutable complete = false
+    let mutable e = getEnumerator vs
+    try
+      while (complete <- moveNext e; complete) && r (current e) do ()
+      complete
+    finally
+      dispose e
 
   // Pipes
 
@@ -149,3 +177,26 @@ module PushStream =
   //  So define a more restrictive version of |> that applies function f to a function v
   //  As both f and v are restibted to lambas we can apply InlineIfLambda
   let inline (|>>) ([<InlineIfLambda>] v : _ -> _) ([<InlineIfLambda>] f : _ -> _) = f v
+
+  // Groups by projection f
+  //  Intentionally returns a PushStream 'Projection*'T ResizeArray
+  //  'Projection*'T PushStream might seem more obvious but some of the benefit
+  //  of PushStreams are lost as now it can't be inlined for the groups
+  //  Instead, ResizeArrays are used to compute the groupings and is not shared
+  //  thus the cheapest and safe way to share the grouping result
+  let inline groupBy ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PushStream) : _ PushStream = fun ([<InlineIfLambda>] r) ->
+    let d = Dictionary<_, ResizeArray<_>> ()
+    let _ = ps (fun v ->
+      let k = f v
+      let b, vs = d.TryGetValue k
+      if b then
+        vs.Add v
+      else
+        let vs = ResizeArray 4
+        vs.Add v
+        d.Add (k, vs)
+      true
+      )
+    let ips = ofValueSeq d |>> map (fun kv -> kv.Key, kv.Value)
+    ips r
+

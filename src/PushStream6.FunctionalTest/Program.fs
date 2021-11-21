@@ -5,13 +5,24 @@ open System.Linq
 open PushStream6
 open PushStream
 
-type ShallowSearchProperties =
+type SingleSearchProperties =
   class
+
+    static member ``empty = Array.empty`` () =
+      let e = Array.empty : int array
+      let a = empty |>> toArray
+      e = a
+
 
     static member ``singleton = Array.singleton`` (v : int) =
       let e = v |> Array.singleton
       let a = singleton v |>> toArray
       e = a
+
+  end
+
+type ShallowSearchProperties =
+  class
 
     static member ``ofArray vs |>> toArray = vs`` (vs : int array) =
       let e = vs
@@ -23,15 +34,21 @@ type ShallowSearchProperties =
       let a = ofList vs |>> toList
       e = a
 
-    static member ``filter = Array.filter`` f (vs : int array) =
-      let e = vs |> Array.filter f
-      let a = ofArray vs |>> filter f |>> toArray
+    static member ``ofResizeArray vs |>> toResizeArray = vs`` (vs : int ResizeArray) =
+      // .ToArray because ResizeArray don't have structural equalness
+      let e = vs.ToArray ()
+      let a = (ofResizeArray vs |>> toResizeArray 16).ToArray ()
       e = a
 
-    static member ``map = Array.map`` (vs : int array) =
-      let f v = int64 (v + 1)
-      let e   = vs |> Array.map f
-      let a   = ofArray vs |>> map f |>> toArray
+    static member ``ofSeq vs |>> toArray = vs`` (vs : int array) =
+      let e = vs
+      let a = ofSeq vs |>> toArray
+      e = a
+
+    static member ``ofValueSeq vs |>> toArray = vs`` (vs : int ResizeArray) =
+      // .ToArray because ResizeArray don't have structural equalness
+      let e = vs.ToArray ()
+      let a = ofValueSeq vs |>> toArray
       e = a
 
     static member ``tryHead = Array.tryHead`` (vs : int array) =
@@ -60,6 +77,17 @@ type DeepSearchProperties =
       let a = ofArray vs |>> choose f |>> toArray
       e = a
 
+    static member ``filter = Array.filter`` f (vs : int array) =
+      let e = vs |> Array.filter f
+      let a = ofArray vs |>> filter f |>> toArray
+      e = a
+
+    static member ``map = Array.map`` (vs : int array) =
+      let f v = int64 (v + 1)
+      let e   = vs |> Array.map f
+      let a   = ofArray vs |>> map f |>> toArray
+      e = a
+
     static member ``top = Enumerable.Take`` (n : int) (vs : int array) =
       let e = vs.Take(n).ToArray()
       let a = ofArray vs |>> top n |>> toArray
@@ -70,22 +98,22 @@ type DeepSearchProperties =
       let a = ofArray vs |>> drop n |>> toArray
       e = a
 
-    static member ``distinctBy = Array.distinctBy`` (vs : (int*int) array) =
+    static member ``distinctBy = Array.distinctBy`` (vs : (int*int64) array) =
       let e = vs |> Array.distinctBy fst
       let a = ofArray vs |>> distinctBy fst |>> toArray
       e = a
 
-    static member ``unionBy = Enumerable.UnionBy`` (first : (int*int) array) (second : (int*int) array) =
+    static member ``unionBy = Enumerable.UnionBy`` (first : (int*int64) array) (second : (int*int64) array) =
       let e = first.UnionBy(second, fst).ToArray()
       let a = ofArray first |>> unionBy fst (ofArray second) |>> toArray
       e = a
 
-    static member ``intersectBy = Enumerable.IntersectBy`` (first : (int*int) array) (second : (int*int) array) =
+    static member ``intersectBy = Enumerable.IntersectBy`` (first : (int*int64) array) (second : (int*int64) array) =
       let e = first.IntersectBy(second.Select(fst), fst).ToArray()
       let a = ofArray first |>> intersectBy fst (ofArray second) |>> toArray
       e = a
 
-    static member ``differenceBy = Enumerable.ExceptBy`` (first : (int*int) array) (second : (int*int) array) =
+    static member ``differenceBy = Enumerable.ExceptBy`` (first : (int*int64) array) (second : (int*int64) array) =
       let e = first.ExceptBy(second.Select(fst), fst).ToArray()
       let a = ofArray first |>> differenceBy fst (ofArray second) |>> toArray
       e = a
@@ -111,13 +139,19 @@ type DeepSearchProperties =
       let a = ofArray vs |>> fold (+) 0
       e = a
 
-    static member ``sortBy = Array.sortBy`` (vs : (int*int) array) =
+    static member ``sortBy = Array.sortBy`` (vs : (int*int64) array) =
       let e = vs |> Array.sortBy fst
       let a = ofArray vs |>> sortBy fst |>> toArray
       e = a
 
+    static member ``groupBy = Array.groupBy`` (vs : (int*int64) array) =
+      let e = vs |> Array.groupBy fst
+      let a = ofArray vs |>> groupBy fst |>> map (fun (k, v) -> k, v.ToArray()) |>> toArray
+      e = a
+
   end
 
+let singletonSearch = { Config.Default with MaxTest = 1 ; MaxFail = 1 }
 #if DEBUG
 let shallowSearch = Config.Quick
 let deepSearch    = Config.Quick
@@ -126,5 +160,6 @@ let shallowSearch = { Config.Default with MaxTest = 100 ; MaxFail = 100   }
 let deepSearch    = { Config.Default with MaxTest = 1000; MaxFail = 1000  }
 #endif
 
+Check.All<SingleSearchProperties>   singletonSearch
 Check.All<ShallowSearchProperties>  shallowSearch
 Check.All<DeepSearchProperties>     deepSearch

@@ -3,9 +3,6 @@ open BenchmarkDotNet.Configs
 open BenchmarkDotNet.Jobs
 open BenchmarkDotNet.Running
 
-open PushStream6
-open PushStream
-
 open PushStream6.Benchmark
 
 module Literals =
@@ -13,6 +10,8 @@ module Literals =
   let Size = 10000
 
 open Literals
+
+type [<Struct>] V2 = V2 of int*int
 
 module SystemLinq =
     open System.Linq
@@ -47,7 +46,63 @@ module CisternValueLinq =
          .Select(IntToInt64 ())
          .Sum()
 
-type [<Struct>] V2 = V2 of int*int
+module PushStreamTest =
+  open PushStream6
+  open PushStream
+
+  let pushStream () =
+    // PushStream using |>
+    ofRange   0 Size
+    |> map    ((+) 1)
+    |> filter (fun v -> (v &&& 1) = 0)
+    |> map    int64
+    |> fold   (+) 0L
+
+  let fasterPushStream () =
+    // PushStream using |>> as it turns out that
+    //  |> prevents inlining of lambdas
+    ofRange     0 Size
+    |>> map     ((+) 1)
+    |>> filter  (fun v -> (v &&& 1) = 0)
+    |>> map     int64
+    |>> fold    (+) 0L
+
+  let pushStreamV2 () =
+    // This test was hurt by tail-calls prior to .NET6
+    ofRange   0 Size
+    |> map    (fun v -> V2 (v, 0))
+    |> map    (fun (V2 (v, w)) -> V2 (v + 1, w))
+    |> filter (fun (V2 (v, _)) -> (v &&& 1) = 0)
+    |> map    (fun (V2 (v, _)) -> int64 v)
+    |> fold   (+) 0L
+
+  let fasterPushStreamV2 () =
+    ofRange     0 Size
+    |>> map     (fun v -> V2 (v, 0))
+    |>> map     (fun (V2 (v, w)) -> V2 (v + 1, w))
+    |>> filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
+    |>> map     (fun (V2 (v, _)) -> int64 v)
+    |>> fold    (+) 0L
+
+
+module PumpStreamTest =
+  open PumpStream6
+  open PumpStream
+
+  let fasterPumpStream () =
+    ofRange     0 Size
+    |>> map     ((+) 1)
+    |>> filter  (fun v -> (v &&& 1) = 0)
+    |>> map     int64
+    |>> fold    (+) 0L
+
+  let fasterPumpStreamV2 () =
+    ofRange     0 Size
+    |>> map     (fun v -> V2 (v, 0))
+    |>> map     (fun (V2 (v, w)) -> V2 (v + 1, w))
+    |>> filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
+    |>> map     (fun (V2 (v, _)) -> int64 v)
+    |>> fold    (+) 0L
 
 [<Config(typeof<BenchmarkConfig>)>]
 [<MemoryDiagnoser>]
@@ -101,41 +156,27 @@ type PushStream6Benchmark() =
 
     [<Benchmark>]
     member x.PushStream () =
-      // PushStream using |>
-      ofRange   0 Size
-      |> map    ((+) 1)
-      |> filter (fun v -> (v &&& 1) = 0)
-      |> map    int64
-      |> fold   (+) 0L
+      PushStreamTest.pushStream ()
 
     [<Benchmark>]
     member x.FasterPushStream () =
-      // PushStream using |>> as it turns out that
-      //  |> prevents inlining of lambdas
-      ofRange     0 Size
-      |>> map     ((+) 1)
-      |>> filter  (fun v -> (v &&& 1) = 0)
-      |>> map     int64
-      |>> fold    (+) 0L
+      PushStreamTest.fasterPushStream ()
 
     [<Benchmark>]
     member x.PushStreamV2 () =
-      // This test was hurt by tail-calls prior to .NET6
-      ofRange   0 Size
-      |> map    (fun v -> V2 (v, 0))
-      |> map    (fun (V2 (v, w)) -> V2 (v + 1, w))
-      |> filter (fun (V2 (v, _)) -> (v &&& 1) = 0)
-      |> map    (fun (V2 (v, _)) -> int64 v)
-      |> fold   (+) 0L
+      PushStreamTest.pushStreamV2 ()
 
     [<Benchmark>]
     member x.FasterPushStreamV2 () =
-      ofRange     0 Size
-      |>> map     (fun v -> V2 (v, 0))
-      |>> map     (fun (V2 (v, w)) -> V2 (v + 1, w))
-      |>> filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
-      |>> map     (fun (V2 (v, _)) -> int64 v)
-      |>> fold    (+) 0L
+      PushStreamTest.fasterPushStreamV2 ()
+
+    [<Benchmark>]
+    member x.FasterPumpStream () =
+      PumpStreamTest.fasterPumpStream ()
+
+    [<Benchmark>]
+    member x.FasterPumpStreamV2 () =
+      PumpStreamTest.fasterPumpStreamV2 ()
 
   end
 

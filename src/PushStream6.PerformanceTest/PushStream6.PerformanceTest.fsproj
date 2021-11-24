@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PushStream6.Benchmark\PushStream6.Benchmark.csproj" />
     <ProjectReference Include="..\PushStream6\PushStream6.fsproj" />
+    <ProjectReference Include="..\PumpStream6\PumpStream6.fsproj" />
   </ItemGroup>
 
 </Project>

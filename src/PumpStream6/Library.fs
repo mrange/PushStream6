@@ -1,15 +1,16 @@
 ﻿namespace PumpStream6
 
+// TODO: Support disposing sources
 type 'T PumpStream = ('T -> bool)->(unit -> bool)
 
 module PumpStream =
   open System
   open System.Collections.Generic
 
+  // PumpStream from Array
   let inline ofArray (vs : _ array) : _ PumpStream = fun ([<InlineIfLambda>] r) ->
     let mutable i = 0
     fun () ->
-      let mutable result = 0
       if i < vs.Length && r vs.[i] then
         i <- i + 1
         true
@@ -17,42 +18,44 @@ module PumpStream =
         false
 
 
-  // Generates a range of ints in b..e
+  // PumpStream of ints in range b..e
   let inline ofRange b e : int PumpStream = fun ([<InlineIfLambda>] r) ->
     let mutable i = b
     fun () ->
-      let mutable result = 0
       if i <= e && r i then
         i <- i + 1
         true
       else
         false
 
-  // Filters a PushStream using a filter function
+  // Filters a PumpStream using a filter function
   let inline filter ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PumpStream) : _ PumpStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> if f v then r v else true)
 
-  // Maps a PushStream using a mapping function
+  // Maps a PumpStream using a mapping function
   let inline map ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PumpStream) : _ PumpStream = fun ([<InlineIfLambda>] r) ->
     ps (fun v -> r (f v))
 
-  // Folds a PushStream using a folder function f and an initial value z
+  // Folds a PumpStream using a folder function f and an initial value z
   let inline fold ([<InlineIfLambda>] f) z ([<InlineIfLambda>] ps : _ PumpStream) =
     let mutable s = z
     let p = ps (fun v -> s <- f s v; true)
     while p () do ()
     s
 
+  // PumpStream to ResizeArray
   let inline toResizeArray (sz : int) ([<InlineIfLambda>] ps : _ PumpStream) =
     let ra = ResizeArray sz
     let p = ps (fun v -> ra.Add v; true)
     while p () do ()
     ra
 
+  // PumpStream to Array
   let inline toArray ([<InlineIfLambda>] ps : _ PumpStream) =
     let ra = toResizeArray 16 ps
     ra.ToArray ()
 
+  // PumpStream to Seq
   let inline toSeq ([<InlineIfLambda>] ps : 'T PumpStream) =
     { new IEnumerable<'T> with
       override x.GetEnumerator () : IEnumerator<'T>         = 

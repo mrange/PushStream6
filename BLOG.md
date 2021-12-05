@@ -1,5 +1,7 @@
 # F# Advent 2021  Dec 08 - Fast data pipelines with F#6
 
+_Thanks to [manofstick](https://gist.github.com/manofstick) for trying out the code and coming with invaluable feedback._
+
 There were many interesting improvements in F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
 
 The purpose of `InlineIfLambda` is to instruct the compiler to inline the lambda argument if possible. One reason is potentially improved performance.
@@ -551,7 +553,9 @@ public long FasterPushStream()
 }
 ```
 
-While a bit more code one can see that thanks to `inline` and `InlineIfLambda` everything is inlined into something that looks like decently efficient code. We can also spot a reason why `FasterPushStream` does a bit worse than `Baseline` as the PushStream includes a short-cutting mechanism that allows the receiver to say it doesn't want to receive more values. This is to allow implementing `tryHead` and similar operations efficiently.
+While a bit more code one can see that thanks to `inline` and `InlineIfLambda` everything is inlined into something that looks like decently efficient code.
+
+We can also spot a reason why `FasterPushStream` does a bit worse than `Baseline` as the PushStream includes a short-cutting mechanism that allows the receiver to say it doesn't want to receive more values. This is to allow implementing `tryHead` and similar operations efficiently.
 
 ### PushStream decompiled
 
@@ -566,13 +570,45 @@ public long PushStream()
   return fsharpRef.contents;
 }
 ```
-Using `|>` F# don't inline the lambdas and a pipeline is set up. This leads to objects being created and virtual calls for each step in the pipeline. It does surprisingly well but one big problem with this approach is that it might need to fallback to slow tail calls gives a significant performance drop.
 
-## Appendix : Disassembling PushStreams
+Using `|>` F# don't inline the lambdas and a pipeline is set up. This leads to objects being created and virtual calls for each step in the pipeline.
 
-### FasterPushStreamV2
+The pipeline does surprisingly well but one big problem with this approach is that it might need to fallback to slow tail calls gives a significant performance drop.
 
-How does the `FasterPushStreamV2` look?
+There are work-arounds to prevent `.tail` attribute from being emitted but that hurt performance when a fast tail call could be used.
+
+Inlining solves this issue as the tail calls are elimiated.
+
+## Appendix : Disassembling
+
+To learn more about what's actually going we can disassemble the jitted code.
+
+### Baseline
+
+The baseline disassembled:
+
+```asm
+.loop:
+  ; Increment loop variable (smart enough to pre increment + 1)
+  inc     edx
+  mov     ecx,edx
+  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
+  test    cl,1
+  jne     .next
+  ; map (fun (V2 (v, _)) -> int64 v)
+  movsxd  rcx,ecx
+  add     rax,rcx
+.next
+  ; Increment loop variable
+  cmp     edx,2711h
+  jl      .loop
+```
+
+Here the jitter was smart enough to pre increment with 1 to avoid incrementing by 1 each loop. In addition, checks the loop condition at the end saves a jmp.
+
+### FasterPushStreamV2 inlined
+
+Let's look at `FasterPushStreamV2`:
 
 ```asm
 .loop:
@@ -594,44 +630,29 @@ How does the `FasterPushStreamV2` look?
   jmp     .loop
 ```
 
-So this looks pretty amazing. `V2` and all virtual calls are completely gone.
+This looks pretty amazing. The `V2` struct and all virtual calls are completely gone.
 
-### Baseline
+The jitter also eliminated the short cutting condition as the producer is always fully consumed.
 
-```asm
-.loop:
-  ; Increment loop variable (smart enough to pre increment + 1)
-  inc     edx
-  mov     ecx,edx
-  ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
-  test    cl,1
-  jne     .next
-  ; map (fun (V2 (v, _)) -> int64 v)
-  movsxd  rcx,ecx
-  add     rax,rcx
-.next
-  ; Increment loop variable
-  cmp     edx,2711h
-  jl      .loop
-```
+The extra overhead seems to come from the pre-increment optimization wasn't applied here and that the end-of-the-loop condition is done differently.
 
-Here the jitter was smart enough to pre increment with 1 to avoid incrementing by 1 each loop. In addition, checks the loop condition at the end saves a jmp.
+Still not bad.
 
-Still, `FasterPushStreamV2` is not far off!
+### FasterPushStreamV2 not inlined
 
-###
-
-One can't tell in the decompiled C# code or the IL code that a slow tail call is applied but one can see that F# instructs the JIT:er to use tail calls if possible.
+By looking at the IL code one can see that the F# compiler has added a `.tail` attribute on the calls to the receiver.
 
 ```asm
+; This tells the jitter that next call is a tail call
 IL_000C: tail.
+; Tail call virtual
 IL_000E: callvirt  instance !1 class [FSharp.Core]Microsoft.FSharp.Core.FSharpFunc`2<class [FSharp.Core]Microsoft.FSharp.Core.FSharpFunc`2<int32, bool>, bool>::Invoke(!0)
 IL_0013: ret
 ```
 
 When invoking the next receiver in the PushStream the F# compiler emits `tail.` attribute.
 
-### Dissassembling fast tail calls
+This leads to the following jitted code:
 
 ```asm
 ; ofRange 0 10000
@@ -639,90 +660,12 @@ When invoking the next receiver in the PushStream the F# compiler emits `tail.` 
   ; Are we done?
   cmp     edi,2710h
   jg      .we_are_done
-  ; Setup virtual call to first receiver in the PushStrema
+  ; Setup virtual call to map receiver
   mov     rcx,rsi
   mov     edx,edi
   mov     rax,qword ptr [rsi]
   mov     rax,qword ptr [rax+40h]
-  ; Do non tail call to receiver
-  call    qword ptr [rax+20h]
-  ; Does the receiver think we should stop?
-  test    eax,eax
-  je      .we_are_done
-  ; Increment loop variable
-  inc     edi
-  jmp     .loop
-
-; map    ((+) 1)
-  mov     rcx,qword ptr [rcx+8]
-  ; Increment input
-  inc     edx
-  ; Setup virtual call to second receiver in the PushStream
-  mov     rax,qword ptr [rcx]
-  mov     rax,qword ptr [rax+40h]
-  mov     rax,qword ptr [rax+20h]
-  ; Fast tail call, just a simple jmp
-  jmp     rax
-
-; filter (fun v -> (v &&& 1) = 0)
-  ; Is input odd?
-  test    dl,1
-  jne     .bail_out
-  ; No it was even
-  ; Setup virtual call to third receiver in the PushStream
-  mov     rcx,qword ptr [rcx+8]
-  mov     rax,qword ptr [rcx]
-  mov     rax,qword ptr [rax+40h]
-  mov     rax,qword ptr [rax+20h]
-  ; Fast tail call, just a simple jmp
-  jmp     rax
-.bail_out:
-  ; No it was odd
-  ; Set eax to 1 (true) to continue looping
-  mov     eax,1
-  ; Return to ofRange loop
-  ret
-
-; map int64
-  mov     rcx,qword ptr [rcx+8]
-  ; Extend to 64 bits
-  movsxd  rdx,edx
-  ; Setup virtual call to forth receiver in the PushStream
-  mov     rax,qword ptr [rcx]
-  mov     rax,qword ptr [rax+40h]
-  mov     rax,qword ptr [rax+20h]
-  ; Fast tail call, just a simple jmp
-  jmp     rax
-
-; fold   (+) 0L
-  mov     rax,qword ptr [rcx+8]
-  mov     rcx,rax
-  ; Add state to value
-  add     rdx,qword ptr [rax+8]
-  ; Store back state
-  mov     qword ptr [rcx+8],rdx
-  ; Set eax to 1 (true) to continue looping
-  mov     eax,1
-  ; Return to ofRange loop
-  ret
-```
-
-Lots of virtual calls in the code but at least it is fast tail calls. What happens when we force slow tail calls by using `V2`. V2 can't be stored in a single register forcing a stack frame to pass the value in.
-
-Let's look at what happens when slow tail calls are used
-
-```asm
-; ofRange 0 10000
-.loop:
-  ; Are we done?
-  cmp     edi,2710h
-  jg      .we_are_done
-  ; Setup virtual call to first receiver in the PushStrema
-  mov     rcx,rsi
-  mov     edx,edi
-  mov     rax,qword ptr [rsi]
-  mov     rax,qword ptr [rax+40h]
-  ; Do non tail call to receiver
+  ; Call the map receiver (no tail call)
   call    qword ptr [rax+20h]
   ; Does the receiver think we should stop?
   test    eax,eax
@@ -732,48 +675,66 @@ Let's look at what happens when slow tail calls are used
   jmp     .loop
 
 ; map (fun v -> V2 (v, 0))
+  ; Save value of rax
   push    rax
+  ; Load address to map receiver
   mov     rcx,qword ptr [rcx+8]
+  ; Clear eax
   xor     eax,eax
+  ; Save V2 on stack
   mov     dword ptr [rsp],edx
   mov     dword ptr [rsp+4],eax
   mov     rdx,qword ptr [rsp]
+  ; Setup virtual call to map receiver
   mov     rax,qword ptr [rcx]
   mov     rax,qword ptr [rax+40h]
   mov     rax,qword ptr [rax+20h]
+  ; Restore stack
   add     rsp,8
+  ; tail call to map receiver
   jmp     rax
 
 ; (fun (V2 (v, w)) -> V2 (v + 1, w))
+  ; Save value of rax
   push    rax
+  ; Save rdx V2 (wonder why it stores a 64bit word?)
   mov     qword ptr [rsp+18h],rdx
+  ; Load address to filter receiver
   mov     rcx,qword ptr [rcx+8]
+  ; Loads V2 (v, _)
   mov     edx,dword ptr [rsp+18h]
+  ; v + 1
   inc     edx
+  ; Load V2 (_, w)
   mov     eax,dword ptr [rsp+1Ch]
+  ; It seems the whole round trip to the stack for V2 was unnecessary
+  ; Store V2 on stack
   mov     dword ptr [rsp],edx
   mov     dword ptr [rsp+4],eax
   mov     rdx,qword ptr [rsp]
+  ; Setup virtual call to map receiver
   mov     rax,qword ptr [rcx]
   mov     rax,qword ptr [rax+40h]
   mov     rax,qword ptr [rax+20h]
   add     rsp,8
+  ; tail call to filter receiver
   jmp     rax
 
 
 ; filter  (fun (V2 (v, _)) -> (v &&& 1) = 0)
-  ; Read the this pointer for V2 but it seems never used
   mov     qword ptr [rsp+10h],rdx
-  ; Test to see if the number is odd
+  ; Test to see V2(v, _) the number is odd (V2 is on the stack)
   test    byte ptr [rsp+10h],1
   jne     .bail_out
   ; No it's even
+  ; Load address to filter receiver
   mov     rcx,qword ptr [rcx+8]
   mov     rdx,qword ptr [rsp+10h]
+  ; Setup virtual call to map receiver
   mov     rax,qword ptr [rcx]
   mov     rax,qword ptr [rax+40h]
   mov     rax,qword ptr [rax+20h]
-  ; Use fast tail call as no stack frame was necessary
+  ; tail call to map receiver
   jmp     rax
 .bail_out:
   ; No it was odd
@@ -783,21 +744,37 @@ Let's look at what happens when slow tail calls are used
   ret
 
 ; map (fun (V2 (v, _)) -> int64 v)
-  mov     qword ptr [rsp+10h],rdx ss:0000005f`3077e888=0000000000001d52
+  mov     qword ptr [rsp+10h],rdx
+  ; Load address to fold receiver
   mov     rcx,qword ptr [rcx+8]
+  ; Load V2(v,_)
   mov     edx,dword ptr [rsp+10h]
+  ; Extend to 64bit
   movsxd  rdx,edx
+  ; Setup virtual call to fold receiver
   mov     rax,qword ptr [rcx]
   mov     rax,qword ptr [rax+40h]
   mov     rax,qword ptr [rax+20h]
+  ; tail call to fold receiver
   jmp     rax
 
 ; fold (+) 0L
+  ; Load fold state
   mov     rax,qword ptr [rcx+8]
-  mov     rcx,rax
+  ; Move state?
+  mov     rdx,rax
+  ; Add V2(v,_) to state
   add     rdx,qword ptr [rax+8]
+  ; Save state
   mov     qword ptr [rcx+8],rdx
+  ; Set eax to 1 (true) to continue looping
   mov     eax,1
+  ; Return to ofRange loop
   ret
 ```
 
+Lot more jitted code which explains the reduced of performance, I am actually surprised it performs as well as it should but I suppose CPUs recognizes common patterns for making virtual calls and optimize for that.
+
+What's great though is that we see that tail calls are applied `jmp` and that they are much more effiecient than in `.NET5` that did tail call through a helper function.
+
+Slower than when inlined but still improvments has been made to jitter.

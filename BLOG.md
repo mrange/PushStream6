@@ -1,6 +1,6 @@
 # F# Advent 2021  Dec 08 - Fast data pipelines with F#6
 
-There were many interesting improvments in F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
+There were many interesting improvements in F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
 
 The purpose of `InlineIfLambda` is to instruct the compiler to inline the lambda argument if possible. One reason is potentially improved performance.
 
@@ -15,7 +15,7 @@ let inline iter ([<InlineIfLambda>] action) (array: 'T[]) =
         action array.[i]
 ```
 
-Without `InlineIfLambda` `Array.iter` would be inlined but invoking `action` would be a virtual call incurring overhad that _sometimes_ can be important.
+Without `InlineIfLambda` `Array.iter` would be inlined but invoking `action` would be a virtual call incurring overhead that _sometimes_ can be important.
 
 ```fsharp
 // This is an example on what we could write to use Array.iter
@@ -47,7 +47,7 @@ for i = 0 to myArray.Length-1 do
   sum <- sum + array.[i]
 ```
 
-This avoid virtual calls as well as allocating a `ref` cell and a lambda.
+This avoids virtual calls as well as allocating a `ref` cell and a lambda.
 
 ## Arrays vs Seq
 
@@ -84,7 +84,7 @@ Can we do better?
 
 In a dream world it would be great if we could have a data pipeline with very little overhead for both memory and CPU. Let's try to see what we can do with `InlineIfLambda`.
 
-`seq`, that is an alias for `IEnumerable<_>`, is a so called pull  pipeline. The consumer pulls value through the pipeline by calling `MoveNext` and `Current` until `MoveNext` returns `false`.
+`seq`, which is an alias for `IEnumerable<_>`, is a so-called pull  pipeline. The consumer pulls value through the pipeline by calling `MoveNext` and `Current` until `MoveNext` returns `false`.
 
 Another approach is to let the producer of data push data through the pipeline. This kind of pipeline tends to be simpler to implement and more performant.
 
@@ -94,7 +94,7 @@ We call it `PushStream` and as it is essentially nested lambdas  `InlineIfLambda
 type PushStream<'T> = ('T -> bool) -> bool
 ```
 
-A `PushStream` is a function that accepts a receiver function `'T->bool` and calls the receiver function until there are no more values are returned or the receiver function returns `false` indicating it wants no more values. `PushStream` returns `true` if the producer values was fully consumed and `false` if the consumption is stopped before reaching the end of the producer.
+A `PushStream` is a function that accepts a receiver function `'T->bool` and calls the receiver function until no values are returned or the receiver function returns `false` indicating it wants no more values. `PushStream` returns `true` if the producer values were fully consumed and `false` if the consumption is stopped before reaching the end of the producer.
 
 A `PushStream` module could look something like this:
 
@@ -164,7 +164,7 @@ ofRange     0 10000
 |>> fold    (+) 0L
 ```
 
-Looks pretty good how does it perform?
+Looks pretty good but how does it perform?
 
 ## Comparing performance with different data pipelines
 
@@ -300,9 +300,9 @@ The imperative `Baseline` does the best as we expect.
 
 It doesn't necessarily mean that your code would benefit of a rewrite to an imperative style over using `Seq`. If the lambda functions are expensive or the pipeline processing is a small part of your application using `Seq` is fine.
 
-`Array` allocates significant amount of memory that has to be GC:ed.
+`Array` allocates a significant amount of memory that has to be GC:ed.
 
-We see that `PushStream` does better thanks to PushStreams having less overhead but what's real interesting is `FasterPushStream` where `InlineIfLambda` is properly applied thanks to operator `|>>`.
+We see that `PushStream` does pretty good but what's real interesting is `FasterPushStream` where `InlineIfLambda` is properly applied thanks to operator `|>>`.
 
 The performance of the `FasterPushStream` is comparable to the `Baseline` and it also don't allocate any memory.
 
@@ -337,7 +337,7 @@ The `FasterPushStream` does even better thanks to that it doesn't need to setup 
 
 `PushStreamV2` was added to expose the cost of F# tail calls. Tail calls in F# is annotated with `.tail` attribute to tell the jitter that the stack frame doesn't have to be preserved.
 
-In .NET5 this caused a signiciant slow down when dealing with types that don't fit in the CPU register due to the runtime eliminating the stack frame on each call. With
+In .NET5 this caused a significant slow down when dealing with types that don't fit in the CPU register due to the runtime eliminating the stack frame on each call. With
 
 .NET6 `PushStreamV2` does worse but not horribly so thanks to improvements in the jitter meaning a stack frame is never created and thus doesn't need to be eliminated.
 
@@ -347,7 +347,7 @@ See appendix for more details.
 
 ## Issues in F#6
 
-While I think it's very exciting that we can write performant data pipelines in F# there are two issues that makes the `PushStream` finicky to use.
+While I think it's very exciting that we can write performant data pipelines in F# there are two issues that make `PushStream` finicky to use.
 
 ### `|>` doesn't inline lambdas
 
@@ -357,7 +357,7 @@ When `|>` is used together with `PushStream` no inlining of lambdas happens whic
 
 [Perhaps](https://github.com/dotnet/fsharp/issues/12388) F# should be changed to support inlining even if `|>` is used?
 
-The workaround to define an operator `|>>` that has `InlineIfLambda` attribute works but it is easy for a programmer to make mistakes as no warnings are produced by the compiler.
+The workaround to define an operator `|>>` that has the `InlineIfLambda` attribute works but it is easy for a programmer to make mistakes as no warnings are produced by the compiler.
 
 ```fsharp
   let inline (|>>) ([<InlineIfLambda>] v : _ -> _) ([<InlineIfLambda>] f : _ -> _) = f v
@@ -484,7 +484,7 @@ The PumpStream is more complex than the `PushStream` so we expect it to perform 
 | FasterPumpStreamV2 | PGO |  17.778 μs | 0.0545 μs | 0.0510 μs |  2.67 |    0.04 |       - |      80 B |
 ```
 
-This run uses the new .NET6 feature of Profile Guided Optimizations, this does improve LINQ and `Seq` performance quite significantly but it also shows that `PumpStream` while slower than `PushStream` only adds about 3x overhead over the base line + some memory overhead compared to `PushStream` 1.5x overhead over the base line.
+This run uses the new .NET6 feature of Profile Guided Optimizations, this does improve LINQ and `Seq` performance quite significantly but it also shows that `PumpStream` while slower than `PushStream` only adds about 3x overhead over the baseline + some memory overhead compared to `PushStream` 1.5x overhead over the baseline.
 
 ## Appendix : Decompiling `PushStream`
 
@@ -551,7 +551,7 @@ public long FasterPushStream()
 }
 ```
 
-While a bit more code one can see that thanks to `inline` and `InlineIfLambda` everything is inlined into something that looks like decently efficient code. We can also spot a reason why `FasterPushStream` does a bit worse than `Baseline` and that is that the PushStream includes a short-cutting mechanism that allows the receiver to say it doesn't want to receive more values. This allows implement `First` efficiently.
+While a bit more code one can see that thanks to `inline` and `InlineIfLambda` everything is inlined into something that looks like decently efficient code. We can also spot a reason why `FasterPushStream` does a bit worse than `Baseline` as the PushStream includes a short-cutting mechanism that allows the receiver to say it doesn't want to receive more values. This is to allow implementing `tryHead` and similar operations efficiently.
 
 ### PushStream decompiled
 

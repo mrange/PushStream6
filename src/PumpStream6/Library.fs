@@ -17,7 +17,6 @@ module PumpStream =
       else
         false
 
-
   // PumpStream of ints in range b..e
   let inline ofRange b e : int PumpStream = fun ([<InlineIfLambda>] r) ->
     let mutable i = b
@@ -58,7 +57,7 @@ module PumpStream =
   // PumpStream to Seq
   let inline toSeq ([<InlineIfLambda>] ps : 'T PumpStream) =
     { new IEnumerable<'T> with
-      override x.GetEnumerator () : IEnumerator<'T>         = 
+      override x.GetEnumerator () : IEnumerator<'T>           =
         let mutable current = ValueNone
         let p = ps (fun v -> current <- ValueSome v; true)
         { new IEnumerator<'T> with
@@ -72,7 +71,7 @@ module PumpStream =
             while p () && current.IsNone do ()
             current.IsSome
         }
-      override x.GetEnumerator () : Collections.IEnumerator = 
+      override x.GetEnumerator () : Collections.IEnumerator   =
         x.GetEnumerator ()
     }
 

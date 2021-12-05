@@ -7,6 +7,17 @@ open System.Linq
 open PushStream6
 open PushStream
 
+type FirstNames = Bill |Steve|Jeff
+type LastNames  = Gates|Jobs |Bezos
+type Ages       = A13  |A30  |A50
+
+type Customer =
+  {
+    FirstName : FirstNames
+    LastName  : LastNames
+    Age       : Ages
+  }
+
 type SingleSearchProperties =
   class
 
@@ -144,6 +155,11 @@ type DeepSearchProperties =
     static member ``sortBy = Array.sortBy`` (vs : (int*int64) array) =
       let e = vs |> Array.sortBy fst
       let a = ofArray vs |>> sortBy fst |>> toArray
+      e = a
+
+    static member ``sortBy customers = Array.sortBy customers `` (vs : Customer array) =
+      let e = vs.OrderBy(fun c -> c.LastName).ThenBy(fun c -> c.FirstName).ThenBy(fun c -> c.Age).ToArray()
+      let a = ofArray vs |>> sortBy (fun c -> struct (c.LastName, c.FirstName, c.Age)) |>> toArray
       e = a
 
     static member ``groupBy = Array.groupBy`` (vs : (int*int64) array) =

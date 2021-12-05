@@ -372,8 +372,96 @@ Merry Christmas
 
 Mårten
 
-## Appendix : Decompiling
 
+## Appendix : PumpStreams
+
+One drawback with PushStream is that it doesn't can't implement `seq<_>` as by design when a source starts running it runs to completion, there's no way to yield the source.
+
+An alternative is PumpSource. A PumpSource returns a function that the sink calls each time it wants a value, the pump operation might yield no value (as filter operations drops values) so several pumping operations might be needed.
+
+A simple version of PumpStream could look like this:
+
+```fsharp
+// TODO: Support disposing sources
+type 'T PumpStream = ('T -> bool)->(unit -> bool)
+
+module PumpStream =
+  open System
+  open System.Collections.Generic
+
+  // PumpStream of ints in range b..e
+  let inline ofRange b e : int PumpStream = fun ([<InlineIfLambda>] r) ->
+    let mutable i = b
+    fun () ->
+      if i <= e && r i then
+        i <- i + 1
+        true
+      else
+        false
+
+  // Filters a PumpStream using a filter function
+  let inline filter ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PumpStream) : _ PumpStream = fun ([<InlineIfLambda>] r) ->
+    ps (fun v -> if f v then r v else true)
+
+  // Maps a PumpStream using a mapping function
+  let inline map ([<InlineIfLambda>] f) ([<InlineIfLambda>] ps : _ PumpStream) : _ PumpStream = fun ([<InlineIfLambda>] r) ->
+    ps (fun v -> r (f v))
+
+  // Folds a PumpStream using a folder function f and an initial value z
+  let inline fold ([<InlineIfLambda>] f) z ([<InlineIfLambda>] ps : _ PumpStream) =
+    let mutable s = z
+    let p = ps (fun v -> s <- f s v; true)
+    while p () do ()
+    s
+
+  // Implements seq<_> over a PumpStream
+  let inline toSeq ([<InlineIfLambda>] ps : 'T PumpStream) =
+    { new IEnumerable<'T> with
+      override x.GetEnumerator () : IEnumerator<'T>           =
+        let mutable current = ValueNone
+        let p = ps (fun v -> current <- ValueSome v; true)
+        { new IEnumerator<'T> with
+          // TODO: Implement Dispose
+          member x.Dispose ()     = ()
+          member x.Reset ()       = raise (NotSupportedException ())
+          member x.Current : 'T   = current.Value
+          member x.Current : obj  = current.Value
+          member x.MoveNext ()    =
+            current <- ValueNone
+            while p () && current.IsNone do ()
+            current.IsSome
+        }
+      override x.GetEnumerator () : Collections.IEnumerator   =
+        x.GetEnumerator ()
+    }
+
+  // It turns out that if we pipe using |> the F# compiler don't inlines
+  //  the lambdas as we like it to
+  //  So define a more restrictive version of |> that applies function f to a function v
+  //  As both f and v are restibted to lambas we can apply InlineIfLambda
+  let inline (|>>) ([<InlineIfLambda>] v : _ -> _) ([<InlineIfLambda>] f : _ -> _) = f v
+```
+
+### Performance
+
+The PumpStream is more complex than the PushStream so we expect it to perform worse but how much worse?
+
+```
+|             Method | Job |       Mean |     Error |    StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
+|------------------- |---- |-----------:|----------:|----------:|------:|--------:|--------:|----------:|
+|           Baseline | PGO |   6.666 μs | 0.1036 μs | 0.0969 μs |  1.00 |    0.00 |       - |         - |
+|               Linq | PGO |  88.306 μs | 1.3255 μs | 1.2398 μs | 13.25 |    0.25 |  0.1221 |     400 B |
+|              Array | PGO |  41.591 μs | 0.1992 μs | 0.1664 μs |  6.25 |    0.09 | 44.7388 | 141,368 B |
+|                Seq | PGO | 142.978 μs | 0.2711 μs | 0.2403 μs | 21.48 |    0.32 |       - |     480 B |
+|   FasterPushStream | PGO |   8.786 μs | 0.0531 μs | 0.0497 μs |  1.32 |    0.02 |       - |         - |
+| FasterPushStreamV2 | PGO |   8.776 μs | 0.0387 μs | 0.0362 μs |  1.32 |    0.02 |       - |         - |
+|   FasterPumpStream | PGO |  17.901 μs | 0.0537 μs | 0.0503 μs |  2.69 |    0.04 |       - |      80 B |
+| FasterPumpStreamV2 | PGO |  17.778 μs | 0.0545 μs | 0.0510 μs |  2.67 |    0.04 |       - |      80 B |
+```
+
+This run uses the new .NET6 feature of Profile Guided Optimizations, this does improve LINQ and `seq<_>` performance quite significantly but it also shows that PumpStream while slower than PushStreams only adds about 3x overhead over the base line + some memory overhead compared to PushStream 1.5x overhead over the base line.
+
+## Appendix : Decompiling PushStreams
 
 Using [dnSpy](https://github.com/dnSpy/dnSpy) we can decompile the compiled IL code into C# to learn what's going on in more details
 
@@ -382,16 +470,16 @@ Using [dnSpy](https://github.com/dnSpy/dnSpy) we can decompile the compiled IL c
 ```csharp
 public long Baseline()
 {
-	long s = 0L;
-	for (int i = 0; i < 10001; i++)
-	{
-		int j = i + 1;
-		if ((j & 1) == 0)
-		{
-			s += (long)j;
-		}
-	}
-	return s;
+  long s = 0L;
+  for (int i = 0; i < 10001; i++)
+  {
+    int j = i + 1;
+    if ((j & 1) == 0)
+    {
+      s += (long)j;
+    }
+  }
+  return s;
 }
 ```
 
@@ -403,38 +491,38 @@ The baseline not very surprisingly becomes a quite efficient loop.
 [Benchmark]
 public long FasterPushStream()
 {
-	long num = 0L;
-	int num2 = 0;
-	for (;;)
-	{
-		bool flag;
-		if (num2 <= 10000)
-		{
-			int num3 = num2;
-			int num4 = 1 + num3;
-			if ((num4 & 1) == 0)
-			{
-				long num5 = (long)num4;
-				num += num5;
-				flag = true;
-			}
-			else
-			{
-				flag = true;
-			}
-		}
-		else
-		{
-			flag = false;
-		}
-		if (!flag)
-		{
-			break;
-		}
-		num2++;
-	}
-	bool flag2 = num2 > 10000;
-	return num;
+  long num = 0L;
+  int num2 = 0;
+  for (;;)
+  {
+    bool flag;
+    if (num2 <= 10000)
+    {
+      int num3 = num2;
+      int num4 = 1 + num3;
+      if ((num4 & 1) == 0)
+      {
+        long num5 = (long)num4;
+        num += num5;
+        flag = true;
+      }
+      else
+      {
+        flag = true;
+      }
+    }
+    else
+    {
+      flag = false;
+    }
+    if (!flag)
+    {
+      break;
+    }
+    num2++;
+  }
+  bool flag2 = num2 > 10000;
+  return num;
 }
 ```
 
@@ -445,17 +533,17 @@ While a bit more code one can see that thanks to `inline` and `InlineIfLambda` e
 ```csharp
 public long PushStream()
 {
-	FSharpFunc<FSharpFunc<int, bool>, bool> _instance = Program.PushStream@55.@_instance;
-	FSharpFunc<FSharpFunc<int, bool>, bool> arg = new Program.PushStream@56-2(@_instance);
-	FSharpFunc<FSharpFunc<long, bool>, bool> fsharpFunc = new Program.PushStream@57-4(arg);
-	FSharpRef<long> fsharpRef = new FSharpRef<long>(0L);
-	bool flag = fsharpFunc.Invoke(new Program.PushStream@58-6(fsharpRef));
-	return fsharpRef.contents;
+  FSharpFunc<FSharpFunc<int, bool>, bool> _instance = Program.PushStream@55.@_instance;
+  FSharpFunc<FSharpFunc<int, bool>, bool> arg = new Program.PushStream@56-2(@_instance);
+  FSharpFunc<FSharpFunc<long, bool>, bool> fsharpFunc = new Program.PushStream@57-4(arg);
+  FSharpRef<long> fsharpRef = new FSharpRef<long>(0L);
+  bool flag = fsharpFunc.Invoke(new Program.PushStream@58-6(fsharpRef));
+  return fsharpRef.contents;
 }
 ```
 Using `|>` F# don't inline the lambdas and a pipeline is set up. This leads to objects being created and virtual calls for each step in the pipeline. It does surprisingly well but one big problem with this approach is that it might need to fallback to slow tail calls gives a significant performance drop.
 
-## Appendix : Disassembling
+## Appendix : Disassembling PushStreams
 
 ### FasterPushStreamV2
 

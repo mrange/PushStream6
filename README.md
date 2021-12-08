@@ -4,6 +4,8 @@ _Thanks to [Sergey Tihon](https://www.linkedin.com/in/sergeytihon/) for running 
 
 _Thanks to [manofstick](https://gist.github.com/manofstick) for trying out the code and coming with invaluable feedback. [Cistern.ValueLinq](https://github.com/manofstick/Cistern.ValueLinq) is very impressive._
 
+## TLDR; F#6 enables data pipelines with up to 15x less overhead than LINQ
+
 There were many interesting improvements in F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
 
 The purpose of `InlineIfLambda` is to instruct the compiler to inline the lambda argument if possible. One reason is potentially improved performance.

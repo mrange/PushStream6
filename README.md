@@ -1,6 +1,8 @@
 # F# Advent 2021  Dec 08 - Fast data pipelines with F#6
 
-_Thanks to [manofstick](https://gist.github.com/manofstick) for trying out the code and coming with invaluable feedback._
+_Thanks to [Sergey Tihon](https://www.linkedin.com/in/sergeytihon/) for running [F# Weekly](https://sergeytihon.com/2021/10/18/f-advent-calendar-2021/) and [F# Advent](https://sergeytihon.com/2021/10/18/f-advent-calendar-2021/)._
+
+_Thanks to [manofstick](https://gist.github.com/manofstick) for trying out the code and coming with invaluable feedback. [Cistern.ValueLinq](https://github.com/manofstick/Cistern.ValueLinq) is very impressive._
 
 There were many interesting improvements in F#6 but one in particular caught my eye, the attribute `InlineIfLambda`.
 
@@ -394,6 +396,8 @@ It's possible for a programmer to verify the generated code using tools like `dn
 To me `InlineIfLambda` is the most exciting F#6 feature as it allow us to create abstractions with little overhead where before we had to rewrite the code to an imperative style.
 
 This makes me wonder if the presence of `inline` and `InlineIfLambda` makes F# the best `.NET` language to write performant code in.
+
+Full source code available at [GitHub](https://github.com/mrange/PushStream6).
 
 Merry Christmas
 

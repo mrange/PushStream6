@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CsPushStreamProperties.fs" />
     <Compile Include="PumpStreamProperties.fs" />
     <Compile Include="PushStreamProperties.fs" />
     <Compile Include="Program.fs" />
@@ -17,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\PushStream6.Benchmark\PushStream6.Benchmark.csproj" />
     <ProjectReference Include="..\PushStream6\PushStream6.fsproj" />
     <ProjectReference Include="..\PumpStream6\PumpStream6.fsproj" />
   </ItemGroup>

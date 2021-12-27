@@ -85,6 +85,16 @@ module PushStreamTest =
     |>> fold    (+) 0L
 
 
+module CsPushStreamTest =
+  open PushStream6.CsPushStream
+  let Invoke () =
+      PushStream
+        .Range(0,(Size + 1))
+        .Select((+) 1)
+        .Where(fun v -> (v &&& 1) = 0)
+        .Select(int64)
+        .Aggregate((+), 0L)
+
 module PumpStreamTest =
   open PumpStream6
   open PumpStream
@@ -154,6 +164,7 @@ type PushStream6Benchmark() =
       |> Seq.map    int64
       |> Seq.fold   (+) 0L
 
+
     [<Benchmark>]
     member x.PushStream () =
       PushStreamTest.pushStream ()
@@ -178,6 +189,10 @@ type PushStream6Benchmark() =
     member x.FasterPumpStreamV2 () =
       PumpStreamTest.fasterPumpStreamV2 ()
 
+    [<Benchmark>]
+    member x.CsPushStream () =
+      // C# version of push stream
+      CsPushStreamTest.Invoke ()
   end
 
 BenchmarkRunner.Run<PushStream6Benchmark>() |> ignore
